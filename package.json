@@ -17,11 +17,16 @@
     "prepare": "husky",
     "typecheck": "tsc --noEmit",
     "commitlint": "commitlint --edit",
-    "db:generate": "prisma generate --schema ./src/core/prisma/schema.prisma",
-    "db:migrate": "prisma migrate dev --schema ./src/core/prisma/schema.prisma",
-    "db:deploy": "prisma migrate deploy --schema ./src/core/prisma/schema.prisma",
-    "db:reset": "prisma migrate reset --schema ./src/core/prisma/schema.prisma",
-    "db:seed": "prisma db seed --schema ./src/core/prisma/schema.prisma"
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:reset": "prisma migrate reset",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "db:push": "prisma db push",
+    "db:pull": "prisma db pull",
+    "db:format": "prisma format",
+    "db:validate": "prisma validate"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
