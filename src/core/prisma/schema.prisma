@@ -45,14 +45,20 @@ enum NotificationStatus {
   ARCHIVED
 }
 
+enum UserProvider {
+  GMAIL
+  GOOGLE
+  APPLE
+}
+
 // ================= MODELS =================
 
 model User {
   userId    Int      @id @default(autoincrement()) @map("user_id")
   email     String   @unique @db.VarChar(100)
   fullName  String?  @map("full_name") @db.VarChar(50)
-  pinCode   String?  @map("pin_code") @db.VarChar(255) // Nên lưu hash thay vì raw string
   currency  String   @default("VND") @db.VarChar(10)
+  provider  UserProvider @default(GOOGLE)
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations

@@ -6,6 +6,7 @@ import {
   PrismaClient,
   RoleAiChatMess,
   TransactionStatus,
+  UserProvider,
 } from './prisma.client';
 import { faker } from '@faker-js/faker';
 import { createPrismaClientOptions } from './prisma.options';
@@ -28,8 +29,12 @@ async function main() {
     data: Array.from({ length: SEED_COUNT }).map(() => ({
       email: faker.internet.email(),
       fullName: faker.person.fullName(),
-      pinCode: faker.string.numeric(6),
       currency: faker.finance.currencyCode(),
+      provider: faker.helpers.arrayElement([
+        UserProvider.GOOGLE,
+        UserProvider.GMAIL,
+        UserProvider.APPLE,
+      ]),
       createdAt: faker.date.past(),
     })),
     skipDuplicates: true,
