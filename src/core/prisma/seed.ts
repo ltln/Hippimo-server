@@ -13,6 +13,8 @@ import { createPrismaClientOptions } from './prisma.options';
 
 const prisma = new PrismaClient(createPrismaClientOptions());
 const SEED_COUNT = 5;
+const USER_FULL_NAME_MAX_LENGTH = 50;
+const MAX_WALLET_NAME_LENGTH = 50;
 
 function pickRandomId(ids: number[], label: string): number {
   if (ids.length === 0) {
@@ -22,13 +24,20 @@ function pickRandomId(ids: number[], label: string): number {
   return faker.helpers.arrayElement(ids);
 }
 
+function normalizeFullName(fullName: string): string {
+  return fullName.trim().slice(0, USER_FULL_NAME_MAX_LENGTH);
+}
+function truncateToMaxLength(value: string, maxLength: number): string {
+  return value.length > maxLength ? value.slice(0, maxLength) : value;
+}
+
 async function main() {
   console.log('Bat dau seed du lieu...');
 
   await prisma.user.createMany({
     data: Array.from({ length: SEED_COUNT }).map(() => ({
       email: faker.internet.email(),
-      fullName: faker.person.fullName(),
+      fullName: normalizeFullName(faker.person.fullName()),
       currency: faker.finance.currencyCode(),
       provider: faker.helpers.arrayElement([
         UserProvider.GOOGLE,
@@ -51,10 +60,10 @@ async function main() {
   await prisma.category.createMany({
     data: Array.from({ length: SEED_COUNT }).map(() => ({
       userId: pickRandomId(userIds, 'user'),
-      name: faker.commerce.department(),
+      name: truncateToMaxLength(faker.commerce.department(), 100),
       type: faker.helpers.arrayElement(['INCOME', 'EXPENSE']),
-      icon: faker.image.url(),
-      color: faker.color.human(),
+      icon: truncateToMaxLength(faker.image.url(), 255),
+      color: truncateToMaxLength(faker.color.human(), 50),
       status: faker.helpers.arrayElement(['ACTIVE', 'INACTIVE']),
     })),
     skipDuplicates: true,
@@ -80,7 +89,7 @@ async function main() {
 
       return {
         userId: pickRandomId(userIds, 'user'),
-        name,
+        name: name.slice(0, MAX_WALLET_NAME_LENGTH),
         type,
         balance: faker.finance.amount({ min: 1000, max: 1000000, dec: 2 }),
         isActive: faker.datatype.boolean(),
