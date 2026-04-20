@@ -1,5 +1,5 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
-import { GoogleMobileLoginDto } from './dto/gg-login.dto';
+import { GoogleMobileLoginDto } from './dto/google-login.dto';
 import { authConfig } from 'src/core/config/app.config';
 import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 import type { ConfigType } from '@nestjs/config';
@@ -49,7 +49,6 @@ export class AuthService {
         name: payload.name ?? null,
         picture: payload.picture ?? null,
       },
-      deviceId: dto.deviceId,
     };
   }
   //Tìm kiếm hoặc tạo mới user trong database
@@ -114,6 +113,9 @@ export class AuthService {
       }
       return payload;
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       if (error instanceof Error) {
         console.error('Google token verification failed:', error.message);
       } else {

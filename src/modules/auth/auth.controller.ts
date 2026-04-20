@@ -1,6 +1,6 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { GoogleMobileLoginDto } from './dto/gg-login.dto';
+import { GoogleMobileLoginDto } from './dto/google-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 
