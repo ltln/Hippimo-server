@@ -8,6 +8,9 @@ export const appConfig = registerAs('app', () => ({
 export const authConfig = registerAs('auth', () => ({
   accessTokenSecret: process.env.ACCESS_TOKEN_SECRET,
   accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || '15m',
+  refreshTokenSecret: process.env.REFRESH_TOKEN_SECRET,
+  refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '15d',
+  googleClientId: process.env.GOOGLE_CLIENT_ID,
 }));
 
 export const redisConfig = registerAs('redis', () => ({

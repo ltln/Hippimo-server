@@ -50,4 +50,34 @@ export class RedisService {
   async ltrim(key: RedisKey, start: number, stop: number): Promise<'OK'> {
     return this.redis.ltrim(key, start, stop);
   }
+
+  async compareAndSetEx(
+    key: RedisKey,
+    expectedValue: string,
+    nextValue: string,
+    ttlSeconds: number,
+  ): Promise<boolean> {
+    const script = `
+local current = redis.call('GET', KEYS[1])
+if not current then
+  return 0
+end
+if current ~= ARGV[1] then
+  return 0
+end
+redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3])
+return 1
+`;
+
+    const result = await this.redis.eval(
+      script,
+      1,
+      key,
+      expectedValue,
+      nextValue,
+      String(ttlSeconds),
+    );
+
+    return Number(result) === 1;
+  }
 }
