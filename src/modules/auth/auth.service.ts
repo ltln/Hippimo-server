@@ -54,11 +54,23 @@ export class AuthService {
   //Tìm kiếm hoặc tạo mới user trong database
   private async findOrCreateUser(payload: TokenPayload) {
     const email = payload.email?.trim().toLowerCase();
+    const providerSubject = payload.sub;
+
+    if (!providerSubject) {
+      throw new UnauthorizedException('Invalid Google token: missing sub');
+    }
+
     if (!email || !payload.email_verified) {
       throw new UnauthorizedException('Google account email is not verified');
     }
+
     let user = await this.prismaService.user.findUnique({
-      where: { email },
+      where: {
+        provider_providerSubject: {
+          provider: UserProvider.GOOGLE,
+          providerSubject,
+        },
+      },
       select: {
         userId: true,
         email: true,
@@ -68,18 +80,46 @@ export class AuthService {
         createdAt: true,
       },
     });
-    if (user && user.provider !== UserProvider.GOOGLE) {
+
+    if (user) {
+      return user;
+    }
+
+    const existingUserByEmail = await this.prismaService.user.findUnique({
+      where: { email },
+      select: {
+        userId: true,
+        email: true,
+        fullName: true,
+        provider: true,
+        providerSubject: true,
+        currency: true,
+        createdAt: true,
+      },
+    });
+
+    if (
+      existingUserByEmail &&
+      existingUserByEmail.provider !== UserProvider.GOOGLE
+    ) {
       throw new UnauthorizedException(
-        `Account already linked with provider ${user.provider}. Please use correct login method.`,
+        `Account already linked with provider ${existingUserByEmail.provider}. Please use correct login method.`,
       );
     }
-    if (!user) {
-      user = await this.prismaService.user.create({
+
+    if (existingUserByEmail?.providerSubject) {
+      throw new UnauthorizedException(
+        'Google account is already linked to another Google subject',
+      );
+    }
+
+    if (existingUserByEmail) {
+      return this.prismaService.user.update({
+        where: { userId: existingUserByEmail.userId },
         data: {
-          email,
-          fullName: payload.name?.trim().slice(0, 50) ?? null,
-          provider: UserProvider.GOOGLE,
-          currency: 'VND',
+          providerSubject,
+          fullName:
+            payload.name?.trim().slice(0, 50) ?? existingUserByEmail.fullName,
         },
         select: {
           userId: true,
@@ -91,6 +131,25 @@ export class AuthService {
         },
       });
     }
+
+    user = await this.prismaService.user.create({
+      data: {
+        email,
+        fullName: payload.name?.trim().slice(0, 50) ?? null,
+        provider: UserProvider.GOOGLE,
+        providerSubject,
+        currency: 'VND',
+      },
+      select: {
+        userId: true,
+        email: true,
+        fullName: true,
+        provider: true,
+        currency: true,
+        createdAt: true,
+      },
+    });
+
     return user;
   }
 
