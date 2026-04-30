@@ -39,6 +39,17 @@ enum CategoryStatus {
   INACTIVE
 }
 
+enum CategoryType {
+  INCOME
+  EXPENSE
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
 enum NotificationStatus {
   UNREAD
   READ
@@ -85,8 +96,9 @@ model Wallet {
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
 
-  user         User          @relation(fields: [userId], references: [userId])
-  transactions Transaction[]
+  user                            User          @relation(fields: [userId], references: [userId])
+  transactions                    Transaction[] @relation("TransactionWallet")
+  transferDestinationTransactions Transaction[] @relation("TransactionDestinationWallet")
 
   @@map("wallets")
 }
@@ -95,7 +107,7 @@ model Category {
   categoryId Int            @id @default(autoincrement()) @map("category_id")
   userId     Int            @map("user_id")
   name       String         @db.VarChar(50)
-  type       String         @db.VarChar(50) // INCOME, EXPENSE
+  type       CategoryType
   icon       String?        @db.VarChar(255)
   color      String?        @db.VarChar(20)
   status     CategoryStatus @default(ACTIVE)
@@ -109,29 +121,27 @@ model Category {
 }
 
 model Transaction {
-  transactionId         Int      @id @default(autoincrement()) @map("transaction_id")
-  userId                Int      @map("user_id")
-  walletId              Int      @map("wallet_id")
-  categoryId            Int      @map("category_id")
-  amount                Decimal  @db.Decimal(15, 2)
-  type                  String   @db.VarChar(20) // INCOME, EXPENSE, TRANSFER
-  transactionDate       DateTime @map("transaction_date")
-  notes                 String?  @db.Text
-  linkedTransactionId   Int?     @map("linked_transaction_id")
-  isExcludedFromReport  Boolean  @default(false) @map("is_excluded_from_report")
-  aiSuggestedCategoryId Int?     @map("ai_suggested_category_id")
-  isEssential           Boolean  @default(false) @map("is_essential")
-  createdAt             DateTime @default(now()) @map("created_at")
+  transactionId         Int             @id @default(autoincrement()) @map("transaction_id")
+  userId                Int             @map("user_id")
+  walletId              Int             @map("wallet_id")
+  toWalletId            Int?            @map("to_wallet_id")
+  categoryId            Int?            @map("category_id")
+  amount                Decimal         @db.Decimal(15, 2)
+  type                  TransactionType
+  transactionDate       DateTime        @map("transaction_date")
+  notes                 String?         @db.Text
+  isExcludedFromReport  Boolean         @default(false) @map("is_excluded_from_report")
+  aiSuggestedCategoryId Int?            @map("ai_suggested_category_id")
+  isEssential           Boolean         @default(false) @map("is_essential")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  deletedAt             DateTime?       @map("deleted_at")
 
   // Relations
   user                User      @relation(fields: [userId], references: [userId])
-  wallet              Wallet    @relation(fields: [walletId], references: [walletId])
-  category            Category  @relation("CategoryToTransaction", fields: [categoryId], references: [categoryId])
+  wallet              Wallet    @relation("TransactionWallet", fields: [walletId], references: [walletId])
+  toWallet            Wallet?   @relation("TransactionDestinationWallet", fields: [toWalletId], references: [walletId])
+  category            Category? @relation("CategoryToTransaction", fields: [categoryId], references: [categoryId])
   aiSuggestedCategory Category? @relation("AiSuggestedCategory", fields: [aiSuggestedCategoryId], references: [categoryId])
-
-  // Self-relation for Transfer/Refund
-  linkedTransaction Transaction?  @relation("TransactionLink", fields: [linkedTransactionId], references: [transactionId])
-  childTransactions Transaction[] @relation("TransactionLink")
 
   receipts      Receipt[]
   notifications Notification[]

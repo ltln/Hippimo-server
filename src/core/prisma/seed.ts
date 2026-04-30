@@ -1,11 +1,13 @@
 import 'dotenv/config';
 import {
+  CategoryType,
   InsightType,
   NotificationStatus,
   NotificationsType,
   PrismaClient,
   RoleAiChatMess,
   TransactionStatus,
+  TransactionType,
   UserProvider,
 } from './prisma.client';
 import { faker } from '@faker-js/faker';
@@ -61,7 +63,10 @@ async function main() {
     data: Array.from({ length: SEED_COUNT }).map(() => ({
       userId: pickRandomId(userIds, 'user'),
       name: truncateToMaxLength(faker.commerce.department(), 100),
-      type: faker.helpers.arrayElement(['INCOME', 'EXPENSE']),
+      type: faker.helpers.arrayElement([
+        CategoryType.INCOME,
+        CategoryType.EXPENSE,
+      ]),
       icon: truncateToMaxLength(faker.image.url(), 255),
       color: truncateToMaxLength(faker.color.human(), 50),
       status: faker.helpers.arrayElement(['ACTIVE', 'INACTIVE']),
@@ -197,7 +202,11 @@ async function main() {
       walletId: pickRandomId(walletIds, 'wallet'),
       categoryId: pickRandomId(categoryIds, 'category'),
       amount: faker.finance.amount({ min: 10000, max: 5000000, dec: 2 }),
-      type: faker.helpers.arrayElement(['INCOME', 'EXPENSE', 'TRANSFER']),
+      type: faker.helpers.arrayElement([
+        TransactionType.INCOME,
+        TransactionType.EXPENSE,
+        TransactionType.TRANSFER,
+      ]),
       transactionDate: faker.date.recent(),
       notes: faker.lorem.sentence(),
     })),
