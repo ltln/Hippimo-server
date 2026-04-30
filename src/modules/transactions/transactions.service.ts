@@ -71,17 +71,24 @@ export class TransactionsService {
       'Wallet not found or inactive',
     );
 
-    const categoryId = await this.resolveCategoryIdForTransaction(
-      createTransactionDto.type,
-      createTransactionDto.categoryId,
-      userId,
-    );
-
-    const categoryType = await this.getCategoryType(categoryId, userId);
-    this.validateTransactionCategoryType(
-      createTransactionDto.type,
-      categoryType,
-    );
+    let categoryId: number | null;
+    if (createTransactionDto.type === TransactionType.TRANSFER) {
+      categoryId = await this.resolveCategoryIdForTransaction(
+        createTransactionDto.type,
+        createTransactionDto.categoryId,
+        userId,
+      );
+    } else {
+      if (createTransactionDto.categoryId == null) {
+        throw new BadRequestException('Category is required');
+      }
+      categoryId = createTransactionDto.categoryId;
+      const categoryType = await this.getCategoryType(categoryId, userId);
+      this.validateTransactionCategoryType(
+        createTransactionDto.type,
+        categoryType,
+      );
+    }
 
     const toWalletId = await this.resolveTransferDestinationWalletId(
       createTransactionDto.type,
@@ -467,8 +474,10 @@ export class TransactionsService {
       case TransactionType.EXPENSE:
         return [{ walletId, delta: decimalAmount.neg() }];
       case TransactionType.TRANSFER:
-        if (!toWalletId) {
-          return [];
+        if (toWalletId === undefined || toWalletId === null) {
+          throw new BadRequestException(
+            'toWalletId is required for transfer transactions',
+          );
         }
 
         return [
