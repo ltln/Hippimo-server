@@ -1,6 +1,11 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { GoogleMobileLoginDto } from './dto/google-login.dto';
-import { authConfig } from 'src/core/config/app.config';
+import { authConfig, mailConfig } from 'src/core/config/app.config';
 import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 import type { ConfigType } from '@nestjs/config';
 import { PrismaService } from 'src/core/prisma/prisma.service';
@@ -10,6 +15,10 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RedisService } from 'src/core/redis/redis.service';
 import * as argon2 from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
+import { randomInt } from 'crypto';
+import nodemailer from 'nodemailer';
+import { RequestEmailLoginCodeDto } from './dto/request-email-login-code.dto';
+import { EmailLoginDto } from './dto/email-login.dto';
 
 @Injectable()
 export class AuthService {
@@ -17,6 +26,8 @@ export class AuthService {
   constructor(
     @Inject(authConfig.KEY)
     private readonly authConf: ConfigType<typeof authConfig>,
+    @Inject(mailConfig.KEY)
+    private readonly mailConf: ConfigType<typeof mailConfig>,
     private readonly prismaService: PrismaService,
     private readonly jwtService: JwtService,
     private readonly redisService: RedisService,
@@ -39,6 +50,11 @@ export class AuthService {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
     };
+    console.log('successfully authenticated user with Google:', {
+      sub: payload.sub,
+      email: payload.email,
+      name: payload.name,
+    });
     return {
       message: 'Google token verified and user authenticated successfully',
       user,
@@ -52,6 +68,118 @@ export class AuthService {
     };
   }
   //Tìm kiếm hoặc tạo mới user trong database
+  async requestEmailLoginCode(dto: RequestEmailLoginCodeDto) {
+    const email = this.normalizeEmail(dto.email);
+    const code = randomInt(100000, 1000000).toString();
+    const ttl = this.parseDurationToSeconds(
+      this.authConf.emailLoginCodeExpiresIn,
+    );
+    const hash = await argon2.hash(code);
+
+    await this.redisService.set(
+      this.getEmailLoginCodeKey(email),
+      JSON.stringify({ hash }),
+      'EX',
+      ttl,
+    );
+    await this.sendEmailLoginCode(email, code);
+
+    return {
+      message: 'Login code sent successfully',
+      expiresIn: ttl,
+    };
+  }
+
+  async emailLogin(dto: EmailLoginDto) {
+    const email = this.normalizeEmail(dto.email);
+    const user = await this.findOrCreateEmailUser(email);
+    const tokens = await this.issueTokens(user.userId, UserProvider.GMAIL);
+    await this.saveRefreshSession(
+      user.userId,
+      UserProvider.GMAIL,
+      tokens.sid,
+      tokens.refreshToken,
+    );
+
+    return {
+      message: 'Email login successful',
+      user,
+      tokens: {
+        tokenType: tokens.tokenType,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      },
+    };
+  }
+
+  private async findOrCreateEmailUser(email: string) {
+    const existingUser = await this.prismaService.user.findUnique({
+      where: { email },
+      select: {
+        userId: true,
+        email: true,
+        fullName: true,
+        provider: true,
+        currency: true,
+        createdAt: true,
+      },
+    });
+
+    if (existingUser) {
+      if (existingUser.provider !== UserProvider.GMAIL) {
+        throw new UnauthorizedException(
+          `Account already linked with provider ${existingUser.provider}. Please use correct login method.`,
+        );
+      }
+      return existingUser;
+    }
+
+    return this.prismaService.user.create({
+      data: {
+        email,
+        provider: UserProvider.GMAIL,
+        providerSubject: email,
+        currency: 'VND',
+      },
+      select: {
+        userId: true,
+        email: true,
+        fullName: true,
+        provider: true,
+        currency: true,
+        createdAt: true,
+      },
+    });
+  }
+
+  private async sendEmailLoginCode(email: string, code: string) {
+    if (
+      !this.mailConf.host ||
+      !this.mailConf.user ||
+      !this.mailConf.pass ||
+      !this.mailConf.from
+    ) {
+      throw new InternalServerErrorException('Mail configuration is missing');
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: this.mailConf.host,
+      port: this.mailConf.port,
+      secure: this.mailConf.secure,
+      auth: {
+        user: this.mailConf.user,
+        pass: this.mailConf.pass,
+      },
+    });
+
+    await transporter.sendMail({
+      from: this.mailConf.from,
+      to: email,
+      subject: 'Your Hippimo login code',
+      text: `Your Hippimo login code is ${code}. It expires in ${this.authConf.emailLoginCodeExpiresIn}.`,
+    });
+  }
+
   private async findOrCreateUser(payload: TokenPayload) {
     const email = payload.email?.trim().toLowerCase();
     const providerSubject = payload.sub;
@@ -429,6 +557,14 @@ export class AuthService {
     return `AUTH:SESSION:${provider}:${sid}`;
   }
   //Hàm chuyển đổi thời gian từ config (ví dụ '15d') sang giây để set TTL trong redis
+  private getEmailLoginCodeKey(email: string) {
+    return `AUTH:EMAIL_LOGIN_CODE:${email}`;
+  }
+
+  private normalizeEmail(email: string) {
+    return email.trim().toLowerCase();
+  }
+
   private parseDurationToSeconds(value: string): number {
     const text = value.trim().toLowerCase();
     const match = text.match(/^([0-9]+)([smhd])$/);
