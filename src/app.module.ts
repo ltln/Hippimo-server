@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
@@ -10,6 +11,7 @@ import { AuthService } from './modules/auth/auth.service';
 import { PrismaService } from './core/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { RedisService } from './core/redis/redis.service';
+import { AuthGuard } from './core/common/guards/auth.guard';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 
 @Module({
@@ -27,6 +29,16 @@ import { TransactionsModule } from './modules/transactions/transactions.module';
     TransactionsModule,
   ],
   controllers: [AppController, AuthController],
-  providers: [AppService, AuthService, PrismaService, JwtService, RedisService],
+  providers: [
+    AppService,
+    AuthService,
+    PrismaService,
+    JwtService,
+    RedisService,
+    {
+      provide: APP_GUARD,
+      useClass: AuthGuard,
+    },
+  ],
 })
 export class AppModule {}
