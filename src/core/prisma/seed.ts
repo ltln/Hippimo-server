@@ -9,6 +9,7 @@ import {
   TransactionStatus,
   TransactionType,
   UserProvider,
+  WalletType,
 } from './prisma.client';
 import { faker } from '@faker-js/faker';
 import { createPrismaClientOptions } from './prisma.options';
@@ -173,15 +174,15 @@ async function main() {
   await prisma.wallet.createMany({
     data: userIdsForMockData.map((userId) => {
       const type = faker.helpers.arrayElement([
-        'Tien mat',
-        'Ngan hang',
-        'Vi dien tu',
+        WalletType.CASH,
+        WalletType.BANK_ACCOUNT,
+        WalletType.E_WALLET,
       ]);
       let name = '';
 
-      if (type === 'Tien mat') {
+      if (type === WalletType.CASH) {
         name = `Vi tien mat ${faker.string.numeric(4)}`;
-      } else if (type === 'Ngan hang') {
+      } else if (type === WalletType.BANK_ACCOUNT) {
         name = `Ngan hang ${faker.company.name()}`;
       } else {
         name = `Vi dien tu ${faker.company.name()}`;

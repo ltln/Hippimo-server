@@ -11,6 +11,7 @@ import { PrismaService } from './core/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { RedisService } from './core/redis/redis.service';
 import { TransactionsModule } from './modules/transactions/transactions.module';
+import { WalletsModule } from './modules/wallets/wallets.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { TransactionsModule } from './modules/transactions/transactions.module';
     AuthModule,
     UsersModule,
     TransactionsModule,
+    WalletsModule,
   ],
   controllers: [AppController, AuthController],
   providers: [AppService, AuthService, PrismaService, JwtService, RedisService],
