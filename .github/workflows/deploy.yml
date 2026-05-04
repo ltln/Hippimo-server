@@ -1,0 +1,65 @@
+name: Continuous Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on:
+      - self-hosted
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Generate .env file
+        run: |
+          cat > .env <<'EOF'
+          NODE_ENV=production
+          PORT=${{ secrets.PORT || '8000' }}
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          REDIS_URL=${{ secrets.REDIS_URL }}
+          ACCESS_TOKEN_SECRET=${{ secrets.ACCESS_TOKEN_SECRET }}
+          ACCESS_TOKEN_EXPIRES_IN=${{ secrets.ACCESS_TOKEN_EXPIRES_IN || '15m' }}
+          REFRESH_TOKEN_SECRET=${{ secrets.REFRESH_TOKEN_SECRET }}
+          REFRESH_TOKEN_EXPIRES_IN=${{ secrets.REFRESH_TOKEN_EXPIRES_IN || '15d' }}
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          EMAIL_LOGIN_CODE_EXPIRES_IN=${{ secrets.EMAIL_LOGIN_CODE_EXPIRES_IN || '10m' }}
+          MAIL_HOST=${{ secrets.MAIL_HOST }}
+          MAIL_PORT=${{ secrets.MAIL_PORT || '587' }}
+          MAIL_SECURE=${{ secrets.MAIL_SECURE || 'false' }}
+          MAIL_USER=${{ secrets.MAIL_USER }}
+          MAIL_PASS=${{ secrets.MAIL_PASS }}
+          MAIL_FROM=${{ secrets.MAIL_FROM }}
+          EOF
+
+      - name: Build Docker image
+        run: docker compose build
+
+      - name: Run Prisma migrations
+        run: docker compose run --rm migrate
+
+      - name: Deploy Docker container
+        run: docker compose up -d hippimo-server --remove-orphans

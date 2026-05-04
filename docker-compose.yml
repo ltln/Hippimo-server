@@ -1,0 +1,23 @@
+services:
+  hippimo-server:
+    container_name: hippimo-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-8000}:${PORT:-8000}"
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    env_file:
+      - .env
+    command: npm run db:deploy
+    profiles:
+      - tools

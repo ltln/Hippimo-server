@@ -1,0 +1,60 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Generate CI .env file
+        run: |
+          cat > .env <<'EOF'
+          NODE_ENV=test
+          PORT=8000
+          DATABASE_URL=postgresql://postgres:password@localhost:5432/hippimo_ci
+          REDIS_URL=redis://localhost:6379
+          ACCESS_TOKEN_SECRET=ci_access_token_secret
+          ACCESS_TOKEN_EXPIRES_IN=15m
+          REFRESH_TOKEN_SECRET=ci_refresh_token_secret
+          REFRESH_TOKEN_EXPIRES_IN=15d
+          GOOGLE_CLIENT_ID=ci_google_client_id
+          EMAIL_LOGIN_CODE_EXPIRES_IN=10m
+          MAIL_HOST=
+          MAIL_PORT=587
+          MAIL_SECURE=false
+          MAIL_USER=
+          MAIL_PASS=
+          MAIL_FROM=
+          EOF
+
+      - name: Validate Docker Compose
+        run: docker compose --profile tools config --quiet
+
+      - name: Build Docker image
+        run: docker compose build hippimo-server
