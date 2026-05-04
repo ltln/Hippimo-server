@@ -25,15 +25,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Build
-        run: npm run build
-
       - name: Generate .env file
         run: |
           cat > .env <<'EOF'
@@ -54,6 +45,18 @@ jobs:
           MAIL_PASS=${{ secrets.MAIL_PASS }}
           MAIL_FROM=${{ secrets.MAIL_FROM }}
           EOF
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
 
       - name: Build Docker image
         run: docker compose build
