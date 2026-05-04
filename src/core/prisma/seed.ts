@@ -1,20 +1,37 @@
 import 'dotenv/config';
 import {
+  CategoryType,
   InsightType,
   NotificationStatus,
   NotificationsType,
   PrismaClient,
   RoleAiChatMess,
   TransactionStatus,
+  TransactionType,
   UserProvider,
 } from './prisma.client';
 import { faker } from '@faker-js/faker';
 import { createPrismaClientOptions } from './prisma.options';
 
 const prisma = new PrismaClient(createPrismaClientOptions());
-const SEED_COUNT = 5;
+const SEED_COUNT = 10;
+const TEST_USER_EMAIL = 'test@gmail.com';
+const RANDOM_USER_COUNT = SEED_COUNT - 1;
 const USER_FULL_NAME_MAX_LENGTH = 50;
 const MAX_WALLET_NAME_LENGTH = 50;
+
+type UserSeedData = {
+  email: string;
+  fullName: string;
+  currency: string;
+  provider: UserProvider;
+  createdAt: Date;
+};
+
+type UserLinkedId = {
+  userId: number;
+  id: number;
+};
 
 function pickRandomId(ids: number[], label: string): number {
   if (ids.length === 0) {
@@ -24,19 +41,49 @@ function pickRandomId(ids: number[], label: string): number {
   return faker.helpers.arrayElement(ids);
 }
 
-function normalizeFullName(fullName: string): string {
-  return fullName.trim().slice(0, USER_FULL_NAME_MAX_LENGTH);
-}
-function truncateToMaxLength(value: string, maxLength: number): string {
-  return value.length > maxLength ? value.slice(0, maxLength) : value;
+function pickRandomUserLinkedId(
+  records: UserLinkedId[],
+  userId: number,
+  label: string,
+): number {
+  const ids = records
+    .filter((record) => record.userId === userId)
+    .map((record) => record.id);
+
+  return pickRandomId(ids, `${label} cua user ${userId}`);
 }
 
-async function main() {
-  console.log('Bat dau seed du lieu...');
+function buildUserIdDistribution(
+  testUserId: number,
+  otherUserIds: number[],
+): number[] {
+  if (otherUserIds.length === 0) {
+    throw new Error('Can it nhat 1 user khac de seed mock data.');
+  }
 
-  await prisma.user.createMany({
-    data: Array.from({ length: SEED_COUNT }).map(() => ({
-      email: faker.internet.email(),
+  return [
+    testUserId,
+    ...Array.from(
+      { length: RANDOM_USER_COUNT },
+      (_, index) => otherUserIds[index % otherUserIds.length],
+    ),
+  ];
+}
+
+function createRandomUserSeedData(count: number): UserSeedData[] {
+  const emails = new Set<string>();
+  const users: UserSeedData[] = [];
+
+  while (users.length < count) {
+    const email = faker.internet.email().toLowerCase();
+
+    if (email === TEST_USER_EMAIL || emails.has(email)) {
+      continue;
+    }
+
+    emails.add(email);
+    users.push({
+      email,
       fullName: normalizeFullName(faker.person.fullName()),
       currency: faker.finance.currencyCode(),
       provider: faker.helpers.arrayElement([
@@ -45,23 +92,76 @@ async function main() {
         UserProvider.APPLE,
       ]),
       createdAt: faker.date.past(),
-    })),
-    skipDuplicates: true,
-  });
-  console.log('Da tao Users');
+    });
+  }
 
-  const allUsers = await prisma.user.findMany({
+  return users;
+}
+
+function normalizeFullName(fullName: string): string {
+  return fullName.trim().slice(0, USER_FULL_NAME_MAX_LENGTH);
+}
+
+function truncateToMaxLength(value: string, maxLength: number): string {
+  return value.length > maxLength ? value.slice(0, maxLength) : value;
+}
+
+async function main() {
+  console.log('Bat dau seed du lieu...');
+
+  const testUser = await prisma.user.upsert({
+    where: {
+      email: TEST_USER_EMAIL,
+    },
+    update: {},
+    create: {
+      email: TEST_USER_EMAIL,
+      fullName: 'Test User',
+      currency: 'VND',
+      provider: UserProvider.GMAIL,
+      providerSubject: TEST_USER_EMAIL,
+      createdAt: faker.date.past(),
+    },
     select: {
       userId: true,
     },
   });
-  const userIds = allUsers.map((user) => user.userId);
+  const testUserId = testUser.userId;
+  console.log(`Da tao User test: ${TEST_USER_EMAIL}`);
+
+  const randomUserData = createRandomUserSeedData(RANDOM_USER_COUNT);
+
+  await prisma.user.createMany({
+    data: randomUserData,
+    skipDuplicates: true,
+  });
+  console.log(`Da tao ${RANDOM_USER_COUNT} Users random`);
+
+  const seededUsers = await prisma.user.findMany({
+    where: {
+      email: {
+        in: [TEST_USER_EMAIL, ...randomUserData.map((user) => user.email)],
+      },
+    },
+    select: {
+      email: true,
+      userId: true,
+    },
+  });
+  const otherUserIds = seededUsers
+    .filter((user) => user.email !== TEST_USER_EMAIL)
+    .map((user) => user.userId);
+  const userIdsForMockData = buildUserIdDistribution(testUserId, otherUserIds);
+  const distinctUserIdsForMockData = Array.from(new Set(userIdsForMockData));
 
   await prisma.category.createMany({
-    data: Array.from({ length: SEED_COUNT }).map(() => ({
-      userId: pickRandomId(userIds, 'user'),
+    data: userIdsForMockData.map((userId) => ({
+      userId,
       name: truncateToMaxLength(faker.commerce.department(), 100),
-      type: faker.helpers.arrayElement(['INCOME', 'EXPENSE']),
+      type: faker.helpers.arrayElement([
+        CategoryType.INCOME,
+        CategoryType.EXPENSE,
+      ]),
       icon: truncateToMaxLength(faker.image.url(), 255),
       color: truncateToMaxLength(faker.color.human(), 50),
       status: faker.helpers.arrayElement(['ACTIVE', 'INACTIVE']),
@@ -71,7 +171,7 @@ async function main() {
   console.log('Da tao Categories');
 
   await prisma.wallet.createMany({
-    data: Array.from({ length: SEED_COUNT }).map(() => {
+    data: userIdsForMockData.map((userId) => {
       const type = faker.helpers.arrayElement([
         'Tien mat',
         'Ngan hang',
@@ -88,7 +188,7 @@ async function main() {
       }
 
       return {
-        userId: pickRandomId(userIds, 'user'),
+        userId,
         name: name.slice(0, MAX_WALLET_NAME_LENGTH),
         type,
         balance: faker.finance.amount({ min: 1000, max: 1000000, dec: 2 }),
@@ -101,8 +201,8 @@ async function main() {
   console.log('Da tao Wallets');
 
   await prisma.aiChatSession.createMany({
-    data: Array.from({ length: SEED_COUNT }).map(() => ({
-      userId: pickRandomId(userIds, 'user'),
+    data: userIdsForMockData.map((userId) => ({
+      userId,
       title: faker.lorem.sentence(),
       createdAt: faker.date.past(),
     })),
@@ -111,8 +211,8 @@ async function main() {
   console.log('Da tao Ai Chat Sessions');
 
   await prisma.financialInsight.createMany({
-    data: Array.from({ length: SEED_COUNT }).map(() => ({
-      userId: pickRandomId(userIds, 'user'),
+    data: userIdsForMockData.map((userId) => ({
+      userId,
       insightType: faker.helpers.arrayElement([
         InsightType.HEALTH_SCORE,
         InsightType.PREDICTION,
@@ -134,35 +234,60 @@ async function main() {
   console.log('Da tao Financial Insights');
 
   const allCategories = await prisma.category.findMany({
+    where: {
+      userId: {
+        in: distinctUserIdsForMockData,
+      },
+    },
     select: {
       categoryId: true,
+      userId: true,
     },
   });
-  const categoryIds = allCategories.map((category) => category.categoryId);
+  const categoryRefs = allCategories.map((category) => ({
+    userId: category.userId,
+    id: category.categoryId,
+  }));
 
   const allWallets = await prisma.wallet.findMany({
+    where: {
+      userId: {
+        in: distinctUserIdsForMockData,
+      },
+    },
     select: {
       walletId: true,
+      userId: true,
     },
   });
-  const walletIds = allWallets.map((wallet) => wallet.walletId);
+  const walletRefs = allWallets.map((wallet) => ({
+    userId: wallet.userId,
+    id: wallet.walletId,
+  }));
 
   const allAiChatSessions = await prisma.aiChatSession.findMany({
+    where: {
+      userId: {
+        in: distinctUserIdsForMockData,
+      },
+    },
     select: {
       aiChatSessionId: true,
+      userId: true,
     },
   });
-  const aiChatSessionIds = allAiChatSessions.map(
-    (session) => session.aiChatSessionId,
-  );
+  const aiChatSessionRefs = allAiChatSessions.map((session) => ({
+    userId: session.userId,
+    id: session.aiChatSessionId,
+  }));
 
   await prisma.budget.createMany({
-    data: Array.from({ length: SEED_COUNT }).map(() => {
+    data: userIdsForMockData.map((userId) => {
       const monthSeed = faker.date.future();
 
       return {
-        userId: pickRandomId(userIds, 'user'),
-        categoryId: pickRandomId(categoryIds, 'category'),
+        userId,
+        categoryId: pickRandomUserLinkedId(categoryRefs, userId, 'category'),
         amountLimit: faker.finance.amount({
           min: 100000,
           max: 20000000,
@@ -178,8 +303,12 @@ async function main() {
   console.log('Da tao Budgets');
 
   await prisma.aiChatMessage.createMany({
-    data: Array.from({ length: SEED_COUNT }).map(() => ({
-      sessionId: pickRandomId(aiChatSessionIds, 'ai chat session'),
+    data: userIdsForMockData.map((userId) => ({
+      sessionId: pickRandomUserLinkedId(
+        aiChatSessionRefs,
+        userId,
+        'ai chat session',
+      ),
       role: faker.helpers.arrayElement([
         RoleAiChatMess.USER,
         RoleAiChatMess.ASSISTANT,
@@ -192,12 +321,16 @@ async function main() {
   console.log('Da tao Ai Chat Messages');
 
   await prisma.transaction.createMany({
-    data: Array.from({ length: SEED_COUNT }).map(() => ({
-      userId: pickRandomId(userIds, 'user'),
-      walletId: pickRandomId(walletIds, 'wallet'),
-      categoryId: pickRandomId(categoryIds, 'category'),
+    data: userIdsForMockData.map((userId) => ({
+      userId,
+      walletId: pickRandomUserLinkedId(walletRefs, userId, 'wallet'),
+      categoryId: pickRandomUserLinkedId(categoryRefs, userId, 'category'),
       amount: faker.finance.amount({ min: 10000, max: 5000000, dec: 2 }),
-      type: faker.helpers.arrayElement(['INCOME', 'EXPENSE', 'TRANSFER']),
+      type: faker.helpers.arrayElement([
+        TransactionType.INCOME,
+        TransactionType.EXPENSE,
+        TransactionType.TRANSFER,
+      ]),
       transactionDate: faker.date.recent(),
       notes: faker.lorem.sentence(),
     })),
@@ -206,17 +339,24 @@ async function main() {
   console.log('Da tao Transactions');
 
   const allTransactions = await prisma.transaction.findMany({
+    where: {
+      userId: {
+        in: distinctUserIdsForMockData,
+      },
+    },
     select: {
       transactionId: true,
+      userId: true,
     },
   });
-  const transactionIds = allTransactions.map(
-    (transaction) => transaction.transactionId,
-  );
+  const transactionRefs = allTransactions.map((transaction) => ({
+    userId: transaction.userId,
+    id: transaction.transactionId,
+  }));
 
   await prisma.notification.createMany({
-    data: Array.from({ length: SEED_COUNT }).map(() => ({
-      userId: pickRandomId(userIds, 'user'),
+    data: userIdsForMockData.map((userId) => ({
+      userId,
       title: faker.lorem.sentence(),
       content: faker.lorem.paragraph(),
       type: faker.helpers.arrayElement([
@@ -229,7 +369,11 @@ async function main() {
         NotificationStatus.READ,
         NotificationStatus.UNREAD,
       ]),
-      relatedTransactionId: pickRandomId(transactionIds, 'transaction'),
+      relatedTransactionId: pickRandomUserLinkedId(
+        transactionRefs,
+        userId,
+        'transaction',
+      ),
       createdAt: faker.date.past(),
     })),
     skipDuplicates: true,
@@ -237,9 +381,13 @@ async function main() {
   console.log('Da tao Notifications');
 
   await prisma.receipt.createMany({
-    data: Array.from({ length: SEED_COUNT }).map(() => ({
-      transactionId: pickRandomId(transactionIds, 'transaction'),
-      userId: pickRandomId(userIds, 'user'),
+    data: userIdsForMockData.map((userId) => ({
+      transactionId: pickRandomUserLinkedId(
+        transactionRefs,
+        userId,
+        'transaction',
+      ),
+      userId,
       imageUrl: faker.image.url(),
       status: faker.helpers.arrayElement([
         TransactionStatus.PENDING,
