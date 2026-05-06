@@ -23,8 +23,8 @@ const walletSelect = {
 export class WalletsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createWalletDto: CreateWalletDto) {
-    await this.ensureUserExists(createWalletDto.userId);
+  async create(userId: string, createWalletDto: CreateWalletDto) {
+    await this.ensureUserExists(userId);
     const initialBalance = this.resolveNonNegativeIntegerAmount(
       createWalletDto.balance,
       'balance',
@@ -32,7 +32,7 @@ export class WalletsService {
 
     return this.prisma.wallet.create({
       data: {
-        userId: createWalletDto.userId,
+        userId,
         name: createWalletDto.name,
         type: createWalletDto.type,
         balance: initialBalance,
@@ -41,7 +41,7 @@ export class WalletsService {
     });
   }
 
-  async findAllByUser(userId: number) {
+  async findAllByUser(userId: string) {
     await this.ensureUserExists(userId);
 
     return this.prisma.wallet.findMany({
@@ -56,7 +56,7 @@ export class WalletsService {
     });
   }
 
-  async findOne(id: number, userId: number) {
+  async findOne(id: string, userId: string) {
     const wallet = await this.prisma.wallet.findFirst({
       where: {
         walletId: id,
@@ -73,11 +73,11 @@ export class WalletsService {
     return wallet;
   }
 
-  async update(id: number, updateWalletDto: UpdateWalletDto) {
+  async update(id: string, userId: string, updateWalletDto: UpdateWalletDto) {
     this.validateUpdatePayloadHasChanges(updateWalletDto);
 
     if (updateWalletDto.isActive === false) {
-      return this.deactivateWalletIfBalanceIsZero(id, updateWalletDto.userId, {
+      return this.deactivateWalletIfBalanceIsZero(id, userId, {
         name: updateWalletDto.name,
         type: updateWalletDto.type,
       });
@@ -86,7 +86,7 @@ export class WalletsService {
     const wallet = await this.prisma.wallet.findFirst({
       where: {
         walletId: id,
-        userId: updateWalletDto.userId,
+        userId,
       },
       select: {
         walletId: true,
@@ -110,7 +110,11 @@ export class WalletsService {
     });
   }
 
-  async addMoney(id: number, addMoneyToWalletDto: AddMoneyToWalletDto) {
+  async addMoney(
+    id: string,
+    userId: string,
+    addMoneyToWalletDto: AddMoneyToWalletDto,
+  ) {
     const amount = this.resolvePositiveIntegerAmount(
       addMoneyToWalletDto.amount,
       'amount',
@@ -119,7 +123,7 @@ export class WalletsService {
     const result = await this.prisma.wallet.updateMany({
       where: {
         walletId: id,
-        userId: addMoneyToWalletDto.userId,
+        userId,
         isActive: true,
       },
       data: {
@@ -141,7 +145,7 @@ export class WalletsService {
     });
   }
 
-  async remove(id: number, userId: number) {
+  async remove(id: string, userId: string) {
     const result = await this.prisma.wallet.updateMany({
       where: {
         walletId: id,
@@ -161,7 +165,7 @@ export class WalletsService {
     return { message: 'Wallet deleted successfully', walletId: id };
   }
 
-  private async ensureUserExists(userId: number) {
+  private async ensureUserExists(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: {
         userId,
@@ -206,8 +210,8 @@ export class WalletsService {
   }
 
   private async deactivateWalletIfBalanceIsZero(
-    walletId: number,
-    userId: number,
+    walletId: string,
+    userId: string,
     data: Pick<UpdateWalletDto, 'name' | 'type'>,
   ) {
     const result = await this.prisma.wallet.updateMany({
@@ -234,7 +238,7 @@ export class WalletsService {
     });
   }
 
-  private async ensureWalletCanBeDeleted(walletId: number, userId: number) {
+  private async ensureWalletCanBeDeleted(walletId: string, userId: string) {
     const wallet = await this.prisma.wallet.findFirst({
       where: {
         walletId,

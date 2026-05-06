@@ -30,11 +30,11 @@ type UserSeedData = {
 };
 
 type UserLinkedId = {
-  userId: number;
-  id: number;
+  userId: string;
+  id: string;
 };
 
-function pickRandomId(ids: number[], label: string): number {
+function pickRandomId(ids: string[], label: string): string {
   if (ids.length === 0) {
     throw new Error(`Khong co du lieu ${label} de tao ban ghi lien ket.`);
   }
@@ -44,9 +44,9 @@ function pickRandomId(ids: number[], label: string): number {
 
 function pickRandomUserLinkedId(
   records: UserLinkedId[],
-  userId: number,
+  userId: string,
   label: string,
-): number {
+): string {
   const ids = records
     .filter((record) => record.userId === userId)
     .map((record) => record.id);
@@ -55,9 +55,9 @@ function pickRandomUserLinkedId(
 }
 
 function buildUserIdDistribution(
-  testUserId: number,
-  otherUserIds: number[],
-): number[] {
+  testUserId: string,
+  otherUserIds: string[],
+): string[] {
   if (otherUserIds.length === 0) {
     throw new Error('Can it nhat 1 user khac de seed mock data.');
   }

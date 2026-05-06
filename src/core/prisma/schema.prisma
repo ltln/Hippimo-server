@@ -74,7 +74,7 @@ enum WalletType {
 // ================= MODELS =================
 
 model User {
-  userId          Int          @id @default(autoincrement()) @map("user_id")
+  userId          String       @id @default(uuid()) @map("user_id") @db.Uuid
   email           String       @unique @db.VarChar(100)
   fullName        String?      @map("full_name") @db.VarChar(50)
   currency        String       @default("VND") @db.VarChar(10)
@@ -97,8 +97,8 @@ model User {
 }
 
 model Wallet {
-  walletId  Int        @id @default(autoincrement()) @map("wallet_id")
-  userId    Int        @map("user_id")
+  walletId  String     @id @default(uuid()) @map("wallet_id") @db.Uuid
+  userId    String     @map("user_id") @db.Uuid
   name      String     @map("name_wallet") @db.VarChar(50)
   type      WalletType
   balance   Decimal    @db.Decimal(15, 2)
@@ -113,8 +113,8 @@ model Wallet {
 }
 
 model Category {
-  categoryId Int            @id @default(autoincrement()) @map("category_id")
-  userId     Int            @map("user_id")
+  categoryId String         @id @default(uuid()) @map("category_id") @db.Uuid
+  userId     String         @map("user_id") @db.Uuid
   name       String         @db.VarChar(50)
   type       CategoryType
   icon       String?        @db.VarChar(255)
@@ -130,17 +130,17 @@ model Category {
 }
 
 model Transaction {
-  transactionId         Int             @id @default(autoincrement()) @map("transaction_id")
-  userId                Int             @map("user_id")
-  walletId              Int             @map("wallet_id")
-  toWalletId            Int?            @map("to_wallet_id")
-  categoryId            Int?            @map("category_id")
+  transactionId         String          @id @default(uuid()) @map("transaction_id") @db.Uuid
+  userId                String          @map("user_id") @db.Uuid
+  walletId              String          @map("wallet_id") @db.Uuid
+  toWalletId            String?         @map("to_wallet_id") @db.Uuid
+  categoryId            String?         @map("category_id") @db.Uuid
   amount                Decimal         @db.Decimal(15, 2)
   type                  TransactionType
   transactionDate       DateTime        @map("transaction_date")
   notes                 String?         @db.Text
   isExcludedFromReport  Boolean         @default(false) @map("is_excluded_from_report")
-  aiSuggestedCategoryId Int?            @map("ai_suggested_category_id")
+  aiSuggestedCategoryId String?         @map("ai_suggested_category_id") @db.Uuid
   isEssential           Boolean         @default(false) @map("is_essential")
   createdAt             DateTime        @default(now()) @map("created_at")
   deletedAt             DateTime?       @map("deleted_at")
@@ -159,9 +159,9 @@ model Transaction {
 }
 
 model Receipt {
-  receiptId         Int               @id @default(autoincrement()) @map("receipt_id")
-  userId            Int               @map("user_id")
-  transactionId     Int               @map("transaction_id")
+  receiptId         String            @id @default(uuid()) @map("receipt_id") @db.Uuid
+  userId            String            @map("user_id") @db.Uuid
+  transactionId     String            @map("transaction_id") @db.Uuid
   imageUrl          String            @map("image_url") @db.Text
   extractedText     String?           @map("extracted_text") @db.Text
   extractedAmount   Decimal?          @map("extracted_amount") @db.Decimal(15, 2)
@@ -176,9 +176,9 @@ model Receipt {
 }
 
 model Budget {
-  budgetId              Int     @id @default(autoincrement()) @map("budget_id")
-  userId                Int     @map("user_id")
-  categoryId            Int     @map("category_id")
+  budgetId              String  @id @default(uuid()) @map("budget_id") @db.Uuid
+  userId                String  @map("user_id") @db.Uuid
+  categoryId            String  @map("category_id") @db.Uuid
   amountLimit           Decimal @map("amount_limit") @db.Decimal(15, 2)
   month                 Int
   year                  Int
@@ -191,13 +191,13 @@ model Budget {
 }
 
 model Notification {
-  notificationId       Int                @id @default(autoincrement()) @map("notification_id")
-  userId               Int                @map("user_id")
+  notificationId       String             @id @default(uuid()) @map("notification_id") @db.Uuid
+  userId               String             @map("user_id") @db.Uuid
   title                String             @db.VarChar(255)
   content              String             @db.Text
   type                 NotificationsType
   status               NotificationStatus @default(UNREAD)
-  relatedTransactionId Int?               @map("related_transaction_id")
+  relatedTransactionId String?            @map("related_transaction_id") @db.Uuid
   createdAt            DateTime           @default(now()) @map("created_at")
 
   user        User         @relation(fields: [userId], references: [userId])
@@ -207,8 +207,8 @@ model Notification {
 }
 
 model FinancialInsight {
-  financialInsightsId Int         @id @default(autoincrement()) @map("financial_insights_id")
-  userId              Int         @map("user_id")
+  financialInsightsId String      @id @default(uuid()) @map("financial_insights_id") @db.Uuid
+  userId              String      @map("user_id") @db.Uuid
   insightType         InsightType @map("insight_type")
   title               String      @db.VarChar(255)
   content             String      @db.Text
@@ -223,8 +223,8 @@ model FinancialInsight {
 }
 
 model AiChatSession {
-  aiChatSessionId Int      @id @default(autoincrement()) @map("ai_chat_session_id")
-  userId          Int      @map("user_id")
+  aiChatSessionId String   @id @default(uuid()) @map("ai_chat_session_id") @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
   title           String   @db.VarChar(255)
   createdAt       DateTime @default(now()) @map("created_at")
 
@@ -235,8 +235,8 @@ model AiChatSession {
 }
 
 model AiChatMessage {
-  aiChatMessId Int            @id @default(autoincrement()) @map("ai_chat_mess_id")
-  sessionId    Int            @map("session_id")
+  aiChatMessId String         @id @default(uuid()) @map("ai_chat_mess_id") @db.Uuid
+  sessionId    String         @map("session_id") @db.Uuid
   role         RoleAiChatMess
   content      String         @db.Text
   createdAt    DateTime       @default(now()) @map("created_at")

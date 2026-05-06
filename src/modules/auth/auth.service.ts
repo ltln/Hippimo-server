@@ -16,6 +16,7 @@ import { RedisService } from 'src/core/redis/redis.service';
 import * as argon2 from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
 import { randomInt } from 'crypto';
+import { isUUID } from 'class-validator';
 import nodemailer from 'nodemailer';
 import { RequestEmailLoginCodeDto } from './dto/request-email-login-code.dto';
 import { EmailLoginDto } from './dto/email-login.dto';
@@ -313,7 +314,7 @@ export class AuthService {
   }
   //Phát hành access token và refresh token
   private async issueTokens(
-    userId: number,
+    userId: string,
     provider: UserProvider,
     sid = uuidv4(),
   ) {
@@ -422,10 +423,10 @@ export class AuthService {
   //Xác nhận refresh token có hợp lệ hay không
   private async verifyRefreshToken(
     refreshToken: string,
-  ): Promise<{ sub: number; sid: string; provider: UserProvider }> {
+  ): Promise<{ sub: string; sid: string; provider: UserProvider }> {
     try {
       const payload = await this.jwtService.verifyAsync<{
-        sub: number;
+        sub: string;
         sid: string;
         provider: UserProvider;
         type: string;
@@ -437,7 +438,8 @@ export class AuthService {
         payload.provider === UserProvider.APPLE ||
         payload.provider === UserProvider.GMAIL;
       if (
-        !payload?.sub ||
+        typeof payload.sub !== 'string' ||
+        !isUUID(payload.sub, '4') ||
         !payload.sid ||
         !validProvider ||
         payload.type !== 'refresh'
@@ -486,7 +488,7 @@ export class AuthService {
   }
   //Lưu session đăng nhập vào redis với refresh token đã hash để tăng cường bảo mật
   private async saveRefreshSession(
-    userId: number,
+    userId: string,
     provider: UserProvider,
     sid: string,
     refreshToken: string,
@@ -506,7 +508,7 @@ export class AuthService {
 
   //Rotate refresh session theo compare-and-set để tránh race condition khi refresh đồng thời
   private async rotateRefreshSessionAtomic(
-    userId: number,
+    userId: string,
     provider: UserProvider,
     sid: string,
     expectedRawSession: string,
@@ -531,12 +533,12 @@ export class AuthService {
     sid: string,
   ): Promise<{
     raw: string;
-    session: { userId: number; hash: string };
+    session: { userId: string; hash: string };
   } | null> {
     const raw = await this.redisService.get(this.getSessionKey(provider, sid));
     if (!raw) return null;
     try {
-      const session = JSON.parse(raw) as { userId: number; hash: string };
+      const session = JSON.parse(raw) as { userId: string; hash: string };
       return { raw, session };
     } catch (error) {
       console.error('Failed to parse refresh session data:', error);
@@ -548,7 +550,7 @@ export class AuthService {
   private async getRefreshSession(
     provider: UserProvider,
     sid: string,
-  ): Promise<{ userId: number; hash: string } | null> {
+  ): Promise<{ userId: string; hash: string } | null> {
     const snapshot = await this.getRefreshSessionSnapshot(provider, sid);
     return snapshot?.session ?? null;
   }

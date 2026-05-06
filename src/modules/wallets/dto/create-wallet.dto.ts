@@ -9,11 +9,6 @@ import {
 import { WalletType } from 'src/core/prisma/prisma.client';
 
 export class CreateWalletDto {
-  @IsInt()
-  @Min(1)
-  @IsNotEmpty()
-  userId!: number;
-
   @IsString()
   @MaxLength(50)
   @IsNotEmpty()
