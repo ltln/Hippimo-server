@@ -13,6 +13,7 @@ import { JwtService } from '@nestjs/jwt';
 import { RedisService } from './core/redis/redis.service';
 import { AuthGuard } from './core/common/guards/auth.guard';
 import { TransactionsModule } from './modules/transactions/transactions.module';
+import { CategoriesModule } from './modules/categories/categories.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { TransactionsModule } from './modules/transactions/transactions.module';
     AuthModule,
     UsersModule,
     TransactionsModule,
+    CategoriesModule,
   ],
   controllers: [AppController, AuthController],
   providers: [
