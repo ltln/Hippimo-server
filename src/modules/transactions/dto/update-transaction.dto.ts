@@ -2,35 +2,26 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
-  IsInt,
-  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
 } from 'class-validator';
 import { TransactionType } from 'src/core/prisma/prisma.client';
 
 export class UpdateTransactionDto {
-  @IsInt()
-  @Min(1)
-  @IsNotEmpty()
-  userId!: number;
+  @IsOptional()
+  @IsUUID('4')
+  walletId?: string;
 
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  walletId?: number;
+  @IsUUID('4')
+  categoryId?: string;
 
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  categoryId?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  toWalletId?: number;
+  @IsUUID('4')
+  toWalletId?: string;
 
   @IsOptional()
   @IsNumber()

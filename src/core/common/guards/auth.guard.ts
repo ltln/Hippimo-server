@@ -9,19 +9,20 @@ import type { ConfigType } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
+import { isUUID } from 'class-validator';
 import { authConfig } from 'src/core/config/app.config';
 import { UserProvider } from 'src/core/prisma/prisma.client';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 export type AccessTokenPayload = {
-  sub: number;
+  sub: string;
   sid: string;
   provider: UserProvider;
   type: 'access';
 };
 
 export type AuthenticatedRequest = Request & {
-  userId: number;
+  userId: string;
   auth: AccessTokenPayload;
 };
 
@@ -81,7 +82,8 @@ export class AuthGuard implements CanActivate {
     payload: Partial<AccessTokenPayload>,
   ): payload is AccessTokenPayload {
     return (
-      typeof payload.sub === 'number' &&
+      typeof payload.sub === 'string' &&
+      isUUID(payload.sub, '4') &&
       typeof payload.sid === 'string' &&
       Boolean(payload.sid) &&
       this.isValidProvider(payload.provider) &&

@@ -9,6 +9,7 @@ import {
   TransactionStatus,
   TransactionType,
   UserProvider,
+  WalletType,
 } from './prisma.client';
 import { faker } from '@faker-js/faker';
 import { createPrismaClientOptions } from './prisma.options';
@@ -29,11 +30,11 @@ type UserSeedData = {
 };
 
 type UserLinkedId = {
-  userId: number;
-  id: number;
+  userId: string;
+  id: string;
 };
 
-function pickRandomId(ids: number[], label: string): number {
+function pickRandomId(ids: string[], label: string): string {
   if (ids.length === 0) {
     throw new Error(`Khong co du lieu ${label} de tao ban ghi lien ket.`);
   }
@@ -43,9 +44,9 @@ function pickRandomId(ids: number[], label: string): number {
 
 function pickRandomUserLinkedId(
   records: UserLinkedId[],
-  userId: number,
+  userId: string,
   label: string,
-): number {
+): string {
   const ids = records
     .filter((record) => record.userId === userId)
     .map((record) => record.id);
@@ -54,9 +55,9 @@ function pickRandomUserLinkedId(
 }
 
 function buildUserIdDistribution(
-  testUserId: number,
-  otherUserIds: number[],
-): number[] {
+  testUserId: string,
+  otherUserIds: string[],
+): string[] {
   if (otherUserIds.length === 0) {
     throw new Error('Can it nhat 1 user khac de seed mock data.');
   }
@@ -173,15 +174,15 @@ async function main() {
   await prisma.wallet.createMany({
     data: userIdsForMockData.map((userId) => {
       const type = faker.helpers.arrayElement([
-        'Tien mat',
-        'Ngan hang',
-        'Vi dien tu',
+        WalletType.CASH,
+        WalletType.BANK_ACCOUNT,
+        WalletType.E_WALLET,
       ]);
       let name = '';
 
-      if (type === 'Tien mat') {
+      if (type === WalletType.CASH) {
         name = `Vi tien mat ${faker.string.numeric(4)}`;
-      } else if (type === 'Ngan hang') {
+      } else if (type === WalletType.BANK_ACCOUNT) {
         name = `Ngan hang ${faker.company.name()}`;
       } else {
         name = `Vi dien tu ${faker.company.name()}`;

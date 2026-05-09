@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UserId } from 'src/core/common/decorators/user-id.decorator';
@@ -15,6 +16,8 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+
+const uuidPipe = new ParseUUIDPipe({ version: '4' });
 
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
@@ -39,28 +42,28 @@ export class UsersController {
   @Get('me')
   @ApiOperation({ summary: 'Get current authenticated user' })
   @ApiOkResponse({ description: 'Current user response' })
-  findMe(@UserId() userId: number) {
+  findMe(@UserId() userId: string) {
     return this.usersService.findOne(userId);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a user by id placeholder' })
   @ApiOkResponse({ description: 'Placeholder response' })
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(+id);
+  findOne(@Param('id', uuidPipe) id: string) {
+    return this.usersService.findOne(id);
   }
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a user by id placeholder' })
   @ApiOkResponse({ description: 'Placeholder response' })
-  update(@Param('id') id: string) {
-    return this.usersService.update(+id);
+  update(@Param('id', uuidPipe) id: string) {
+    return this.usersService.update(id);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a user by id placeholder' })
   @ApiOkResponse({ description: 'Placeholder response' })
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(+id);
+  remove(@Param('id', uuidPipe) id: string) {
+    return this.usersService.remove(id);
   }
 }
