@@ -2,35 +2,27 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
-  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
 } from 'class-validator';
 import { TransactionType } from 'src/core/prisma/prisma.client';
 
 export class CreateTransactionDto {
-  @IsInt()
-  @Min(1)
+  @IsUUID('4')
   @IsNotEmpty()
-  userId!: number;
+  walletId!: string;
 
-  @IsInt()
-  @Min(1)
-  @IsNotEmpty()
-  walletId!: number;
-
-  @IsInt()
-  @Min(1)
+  @IsUUID('4')
   @IsOptional()
-  categoryId?: number;
+  categoryId?: string;
 
-  @IsInt()
-  @Min(1)
+  @IsUUID('4')
   @IsOptional()
-  toWalletId?: number;
+  toWalletId?: string;
 
   @IsNumber()
   @Min(0.01)
@@ -53,10 +45,9 @@ export class CreateTransactionDto {
   @IsBoolean()
   isExcludedFromReport?: boolean;
 
-  @IsInt()
-  @Min(1)
+  @IsUUID('4')
   @IsOptional()
-  aiSuggestedCategoryId?: number;
+  aiSuggestedCategoryId?: string;
 
   @IsOptional()
   @IsBoolean()

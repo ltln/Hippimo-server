@@ -14,6 +14,7 @@ import { RedisService } from './core/redis/redis.service';
 import { AuthGuard } from './core/common/guards/auth.guard';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { CategoriesModule } from './modules/categories/categories.module';
+import { WalletsModule } from './modules/wallets/wallets.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { CategoriesModule } from './modules/categories/categories.module';
     AuthModule,
     UsersModule,
     TransactionsModule,
+    WalletsModule,
     CategoriesModule,
   ],
   controllers: [AppController, AuthController],

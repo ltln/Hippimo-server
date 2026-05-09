@@ -32,7 +32,7 @@ const transactionSelect = {
 export class TransactionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAllByUser(userId: number) {
+  async findAllByUser(userId: string) {
     return this.prisma.transaction.findMany({
       where: {
         userId,
@@ -45,7 +45,7 @@ export class TransactionsService {
     });
   }
 
-  async findOne(id: number, userId: number) {
+  async findOne(id: string, userId: string) {
     const transaction = await this.prisma.transaction.findFirst({
       where: {
         transactionId: id,
@@ -62,16 +62,14 @@ export class TransactionsService {
     return transaction;
   }
 
-  async create(createTransactionDto: CreateTransactionDto) {
-    const userId = createTransactionDto.userId;
-
+  async create(userId: string, createTransactionDto: CreateTransactionDto) {
     await this.ensureActiveWallet(
       createTransactionDto.walletId,
       userId,
       'Wallet not found or inactive',
     );
 
-    let categoryId: number | null;
+    let categoryId: string | null;
     if (createTransactionDto.type === TransactionType.TRANSFER) {
       categoryId = await this.resolveCategoryIdForTransaction(
         createTransactionDto.type,
@@ -150,8 +148,11 @@ export class TransactionsService {
     });
   }
 
-  async update(id: number, updateTransactionDto: UpdateTransactionDto) {
-    const userId = updateTransactionDto.userId;
+  async update(
+    id: string,
+    userId: string,
+    updateTransactionDto: UpdateTransactionDto,
+  ) {
     this.validateUpdatePayloadHasChanges(updateTransactionDto);
 
     const transaction = await this.prisma.transaction.findFirst({
@@ -259,7 +260,7 @@ export class TransactionsService {
     });
   }
 
-  async remove(id: number, userId: number) {
+  async remove(id: string, userId: string) {
     const transaction = await this.prisma.transaction.findFirst({
       where: {
         transactionId: id,
@@ -351,8 +352,8 @@ export class TransactionsService {
   }
 
   private async ensureActiveWallet(
-    walletId: number,
-    userId: number,
+    walletId: string,
+    userId: string,
     errorMessage: string,
   ) {
     const wallet = await this.prisma.wallet.findFirst({
@@ -373,8 +374,8 @@ export class TransactionsService {
 
   private async resolveCategoryIdForTransaction(
     transactionType: TransactionType,
-    categoryId: number | undefined | null,
-    userId: number,
+    categoryId: string | undefined | null,
+    userId: string,
   ) {
     if (transactionType === TransactionType.TRANSFER) {
       if (categoryId !== undefined && categoryId !== null) {
@@ -398,8 +399,8 @@ export class TransactionsService {
   }
 
   private async getCategoryType(
-    categoryId: number | null,
-    userId: number,
+    categoryId: string | null,
+    userId: string,
   ): Promise<CategoryType | null> {
     if (categoryId === null) {
       return null;
@@ -425,9 +426,9 @@ export class TransactionsService {
 
   private async resolveTransferDestinationWalletId(
     transactionType: TransactionType,
-    walletId: number,
-    toWalletId: number | undefined | null,
-    userId: number,
+    walletId: string,
+    toWalletId: string | undefined | null,
+    userId: string,
   ) {
     if (transactionType !== TransactionType.TRANSFER) {
       if (toWalletId !== undefined && toWalletId !== null) {
@@ -462,8 +463,8 @@ export class TransactionsService {
 
   private getWalletBalanceDeltas(
     transactionType: TransactionType,
-    walletId: number,
-    toWalletId: number | null | undefined,
+    walletId: string,
+    toWalletId: string | null | undefined,
     amount: Prisma.Decimal.Value,
   ) {
     const decimalAmount = new Prisma.Decimal(amount);
@@ -489,8 +490,8 @@ export class TransactionsService {
 
   private async applyWalletBalanceDeltas(
     tx: Prisma.TransactionClient,
-    userId: number,
-    deltas: Array<{ walletId: number; delta: Prisma.Decimal }>,
+    userId: string,
+    deltas: Array<{ walletId: string; delta: Prisma.Decimal }>,
     reverse = false,
   ) {
     for (const { walletId, delta } of deltas) {
@@ -505,8 +506,8 @@ export class TransactionsService {
 
   private async applyWalletBalanceDelta(
     tx: Prisma.TransactionClient,
-    walletId: number,
-    userId: number,
+    walletId: string,
+    userId: string,
     delta: Prisma.Decimal,
   ) {
     if (delta.isZero()) {

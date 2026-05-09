@@ -22,24 +22,28 @@ const categorySelect = {
 export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(userId: number, createCategoryDto: CreateCategoryDto) {
+  async create(userId: string, createCategoryDto: CreateCategoryDto) {
     await this.ensureUserExists(userId);
     const normalizedName = this.normalizeName(createCategoryDto.name);
     await this.ensureCategoryNameIsUnique(userId, normalizedName);
 
-    return this.prisma.category.create({
-      data: {
-        userId,
-        name: normalizedName,
-        type: createCategoryDto.type,
-        icon: createCategoryDto.icon,
-        color: createCategoryDto.color,
-      },
-      select: categorySelect,
-    });
+    try {
+      return await this.prisma.category.create({
+        data: {
+          userId,
+          name: normalizedName,
+          type: createCategoryDto.type,
+          icon: createCategoryDto.icon,
+          color: createCategoryDto.color,
+        },
+        select: categorySelect,
+      });
+    } catch (error) {
+      this.handleCategoryWriteError(error);
+    }
   }
 
-  async findAllByUser(userId: number) {
+  async findAllByUser(userId: string) {
     await this.ensureUserExists(userId);
 
     return this.prisma.category.findMany({
@@ -54,7 +58,7 @@ export class CategoriesService {
     });
   }
 
-  async findOne(id: number, userId: number) {
+  async findOne(id: string, userId: string) {
     const category = await this.prisma.category.findFirst({
       where: {
         categoryId: id,
@@ -72,8 +76,8 @@ export class CategoriesService {
   }
 
   async update(
-    id: number,
-    userId: number,
+    id: string,
+    userId: string,
     updateCategoryDto: UpdateCategoryDto,
   ) {
     this.validateUpdatePayloadHasChanges(updateCategoryDto);
@@ -114,22 +118,26 @@ export class CategoriesService {
       await this.ensureCategoryNameIsUnique(userId, nextName, id);
     }
 
-    return this.prisma.category.update({
-      where: {
-        categoryId: id,
-      },
-      data: {
-        name: normalizedName,
-        type: updateCategoryDto.type,
-        icon: updateCategoryDto.icon,
-        color: updateCategoryDto.color,
-        status: updateCategoryDto.status,
-      },
-      select: categorySelect,
-    });
+    try {
+      return await this.prisma.category.update({
+        where: {
+          categoryId: id,
+        },
+        data: {
+          name: normalizedName,
+          type: updateCategoryDto.type,
+          icon: updateCategoryDto.icon,
+          color: updateCategoryDto.color,
+          status: updateCategoryDto.status,
+        },
+        select: categorySelect,
+      });
+    } catch (error) {
+      this.handleCategoryWriteError(error);
+    }
   }
 
-  async remove(id: number, userId: number) {
+  async remove(id: string, userId: string) {
     const category = await this.prisma.category.findFirst({
       where: {
         categoryId: id,
@@ -157,7 +165,7 @@ export class CategoriesService {
     return { message: 'Category deleted successfully', categoryId: id };
   }
 
-  private async ensureUserExists(userId: number) {
+  private async ensureUserExists(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: {
         userId,
@@ -183,9 +191,9 @@ export class CategoriesService {
   }
 
   private async ensureCategoryNameIsUnique(
-    userId: number,
+    userId: string,
     name: string,
-    exceptCategoryId?: number,
+    exceptCategoryId?: string,
   ) {
     const where: Prisma.CategoryWhereInput = {
       userId,
@@ -233,9 +241,21 @@ export class CategoriesService {
       throw new BadRequestException('No category fields provided to update');
     }
   }
+
+  private handleCategoryWriteError(error: unknown): never {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      throw new BadRequestException('Category name already exists');
+    }
+
+    throw error;
+  }
+
   private async ensureCategoryTypeCanBeChanged(
-    categoryId: number,
-    userId: number,
+    categoryId: string,
+    userId: string,
   ) {
     const usedTransactionsCount = await this.prisma.transaction.count({
       where: {
