@@ -83,28 +83,25 @@ export class WalletsService {
       });
     }
 
-    const wallet = await this.prisma.wallet.findFirst({
+    const result = await this.prisma.wallet.updateMany({
       where: {
         walletId: id,
         userId,
-      },
-      select: {
-        walletId: true,
-      },
-    });
-
-    if (!wallet) {
-      throw new NotFoundException('Wallet not found');
-    }
-
-    return this.prisma.wallet.update({
-      where: {
-        walletId: id,
       },
       data: {
         name: updateWalletDto.name,
         type: updateWalletDto.type,
         isActive: updateWalletDto.isActive,
+      },
+    });
+
+    if (result.count !== 1) {
+      throw new NotFoundException('Wallet not found');
+    }
+
+    return this.prisma.wallet.findUnique({
+      where: {
+        walletId: id,
       },
       select: walletSelect,
     });
@@ -255,6 +252,8 @@ export class WalletsService {
       throw new NotFoundException('Wallet not found');
     }
 
-    throw new BadRequestException('Wallet balance must be zero before delete');
+    throw new BadRequestException(
+      'Wallet balance must be zero before deactivating or deleting',
+    );
   }
 }
