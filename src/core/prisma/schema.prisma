@@ -50,6 +50,12 @@ enum TransactionType {
   TRANSFER
 }
 
+enum BudgetPeriodType {
+  WEEK
+  MONTH
+  YEAR
+}
+
 enum NotificationStatus {
   UNREAD
   READ
@@ -176,17 +182,19 @@ model Receipt {
 }
 
 model Budget {
-  budgetId              String  @id @default(uuid()) @map("budget_id") @db.Uuid
-  userId                String  @map("user_id") @db.Uuid
-  categoryId            String  @map("category_id") @db.Uuid
-  amountLimit           Decimal @map("amount_limit") @db.Decimal(15, 2)
-  month                 Int
-  year                  Int
-  alertThresholdPercent Int     @default(80) @map("alert_threshold_percent")
+  budgetId              String           @id @default(uuid()) @map("budget_id") @db.Uuid
+  userId                String           @map("user_id") @db.Uuid
+  categoryId            String           @map("category_id") @db.Uuid
+  amountLimit           Decimal          @map("amount_limit") @db.Decimal(15, 2)
+  periodType            BudgetPeriodType @map("period_type")
+  periodStart           DateTime         @map("period_start")
+  periodEnd             DateTime         @map("period_end")
+  alertThresholdPercent Int              @default(80) @map("alert_threshold_percent")
 
   user     User     @relation(fields: [userId], references: [userId])
   category Category @relation(fields: [categoryId], references: [categoryId])
 
+  @@unique([userId, categoryId, periodType, periodStart])
   @@map("budgets")
 }
 

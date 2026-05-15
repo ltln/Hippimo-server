@@ -15,6 +15,7 @@ import { AuthGuard } from './core/common/guards/auth.guard';
 import { TransactionsModule } from './modules/transactions/transactions.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { WalletsModule } from './modules/wallets/wallets.module';
+import { BudgetsModule } from './modules/budgets/budgets.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { WalletsModule } from './modules/wallets/wallets.module';
     TransactionsModule,
     WalletsModule,
     CategoriesModule,
+    BudgetsModule,
   ],
   controllers: [AppController, AuthController],
   providers: [
