@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import {
+  BudgetPeriodType,
   CategoryType,
   InsightType,
   NotificationStatus,
@@ -284,7 +285,17 @@ async function main() {
 
   await prisma.budget.createMany({
     data: userIdsForMockData.map((userId) => {
-      const monthSeed = faker.date.future();
+      const periodSeed = faker.date.future();
+      const periodStart = new Date(
+        Date.UTC(
+          periodSeed.getUTCFullYear(),
+          periodSeed.getUTCMonth(),
+          periodSeed.getUTCDate(),
+        ),
+      );
+      const periodEnd = new Date(
+        periodStart.getTime() + 30 * 24 * 60 * 60 * 1000 - 1,
+      );
 
       return {
         userId,
@@ -294,8 +305,9 @@ async function main() {
           max: 20000000,
           dec: 2,
         }),
-        month: monthSeed.getMonth() + 1,
-        year: monthSeed.getFullYear(),
+        periodType: BudgetPeriodType.MONTH,
+        periodStart,
+        periodEnd,
         alertThresholdPercent: faker.number.int({ min: 50, max: 100 }),
       };
     }),
