@@ -15,14 +15,17 @@ import { appConfig, authConfig, mailConfig, redisConfig } from './app.config';
         ACCESS_TOKEN_EXPIRES_IN: Joi.string().default('15m'),
         REFRESH_TOKEN_SECRET: Joi.string().required(), // Bắt buộc phải có
         REFRESH_TOKEN_EXPIRES_IN: Joi.string().default('15d'),
-        EMAIL_LOGIN_CODE_EXPIRES_IN: Joi.string().default('10m'),
+        EMAIL_LOGIN_CODE_EXPIRES_IN: Joi.string().default('3m'),
+        EMAIL_LOGIN_CODE_MAX_ATTEMPTS: Joi.number().integer().min(1).default(5),
         GOOGLE_CLIENT_ID: Joi.string().required(),
         MAIL_HOST: Joi.string().allow('').optional(),
         MAIL_PORT: Joi.number().default(587),
         MAIL_SECURE: Joi.boolean().default(false),
-        MAIL_USER: Joi.string().allow('').optional(),
-        MAIL_PASS: Joi.string().allow('').optional(),
+        MAIL_USER: Joi.string().allow('', null).optional(),
+        MAIL_PASS: Joi.string().allow('', null).optional(),
         MAIL_FROM: Joi.string().allow('').optional(),
+        MAIL_LOGIN_CODE_TEMPLATE_PATH: Joi.string().allow('').optional(),
+        MAIL_LOGIN_CODE_TEMPLATE_HTML: Joi.string().allow('').optional(),
         NODE_ENV: Joi.string()
           .valid('development', 'production', 'test')
           .default('development'),

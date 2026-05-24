@@ -55,11 +55,21 @@ export class AuthController {
   @Post('email/login')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Log in with email' })
+  @ApiOperation({ summary: 'Send an email login code' })
+  @ApiOkResponse({ description: 'Login code sent successfully' })
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async emailLogin(@Body() dto: RequestEmailLoginCodeDto) {
+    return this.authService.requestEmailLoginCode(dto);
+  }
+
+  @Post('email/verify')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify email login code' })
   @ApiOkResponse({ description: 'Returns the authenticated user and tokens' })
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  async emailLogin(@Body() dto: EmailLoginDto) {
-    return this.authService.emailLogin(dto);
+  async verifyEmailLogin(@Body() dto: EmailLoginDto) {
+    return this.authService.verifyEmailLoginCode(dto);
   }
 
   @Post('refresh-token')

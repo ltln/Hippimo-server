@@ -6,8 +6,6 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ConfigModule } from './core/config/config.module';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { AuthController } from './modules/auth/auth.controller';
-import { AuthService } from './modules/auth/auth.service';
 import { PrismaService } from './core/prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { RedisService } from './core/redis/redis.service';
@@ -34,10 +32,9 @@ import { BudgetsModule } from './modules/budgets/budgets.module';
     CategoriesModule,
     BudgetsModule,
   ],
-  controllers: [AppController, AuthController],
+  controllers: [AppController],
   providers: [
     AppService,
-    AuthService,
     PrismaService,
     JwtService,
     RedisService,

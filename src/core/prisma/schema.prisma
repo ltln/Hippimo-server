@@ -63,7 +63,7 @@ enum NotificationStatus {
 }
 
 enum UserProvider {
-  GMAIL
+  EMAIL
   GOOGLE
   APPLE
 }

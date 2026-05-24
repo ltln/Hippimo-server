@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsEmail, IsNotEmpty, MaxLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RequestEmailLoginCodeDto {
@@ -15,4 +15,14 @@ export class RequestEmailLoginCodeDto {
     typeof value === 'string' ? value.trim().toLowerCase() : '',
   )
   email!: string;
+
+  @ApiProperty({
+    description: 'Client device identifier',
+    example: 'ios-device-123',
+    maxLength: 120,
+  })
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(120)
+  deviceId!: string;
 }

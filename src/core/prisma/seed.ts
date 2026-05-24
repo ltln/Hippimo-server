@@ -90,7 +90,7 @@ function createRandomUserSeedData(count: number): UserSeedData[] {
       currency: faker.finance.currencyCode(),
       provider: faker.helpers.arrayElement([
         UserProvider.GOOGLE,
-        UserProvider.GMAIL,
+        UserProvider.EMAIL,
         UserProvider.APPLE,
       ]),
       createdAt: faker.date.past(),
@@ -120,7 +120,7 @@ async function main() {
       email: TEST_USER_EMAIL,
       fullName: 'Test User',
       currency: 'VND',
-      provider: UserProvider.GMAIL,
+      provider: UserProvider.EMAIL,
       providerSubject: TEST_USER_EMAIL,
       createdAt: faker.date.past(),
     },

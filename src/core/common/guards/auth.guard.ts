@@ -95,7 +95,7 @@ export class AuthGuard implements CanActivate {
     return (
       provider === UserProvider.GOOGLE ||
       provider === UserProvider.APPLE ||
-      provider === UserProvider.GMAIL
+      provider === UserProvider.EMAIL
     );
   }
 }

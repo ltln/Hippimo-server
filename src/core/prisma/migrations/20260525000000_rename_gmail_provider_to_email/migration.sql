@@ -1,0 +1,1 @@
+ALTER TYPE "UserProvider" RENAME VALUE 'GMAIL' TO 'EMAIL';

@@ -1,15 +1,10 @@
-import {
-  Inject,
-  Injectable,
-  InternalServerErrorException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { GoogleMobileLoginDto } from './dto/google-login.dto';
-import { authConfig, mailConfig } from 'src/core/config/app.config';
+import { authConfig } from 'src/core/config/app.config';
 import { OAuth2Client, type TokenPayload } from 'google-auth-library';
 import type { ConfigType } from '@nestjs/config';
 import { PrismaService } from 'src/core/prisma/prisma.service';
-import { UserProvider } from 'src/core/prisma/prisma.client';
+import { CategoryType, UserProvider } from 'src/core/prisma/prisma.client';
 import { JwtService } from '@nestjs/jwt';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RedisService } from 'src/core/redis/redis.service';
@@ -17,9 +12,42 @@ import * as argon2 from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
 import { randomInt } from 'crypto';
 import { isUUID } from 'class-validator';
-import nodemailer from 'nodemailer';
 import { RequestEmailLoginCodeDto } from './dto/request-email-login-code.dto';
 import { EmailLoginDto } from './dto/email-login.dto';
+import { MailService } from 'src/providers/mail/mail.service';
+
+const defaultCategories = [
+  {
+    name: 'Salary',
+    type: CategoryType.INCOME,
+    icon: 'wallet',
+    color: '#16A34A',
+  },
+  {
+    name: 'Food',
+    type: CategoryType.EXPENSE,
+    icon: 'utensils',
+    color: '#F97316',
+  },
+  {
+    name: 'Transport',
+    type: CategoryType.EXPENSE,
+    icon: 'car',
+    color: '#2563EB',
+  },
+  {
+    name: 'Shopping',
+    type: CategoryType.EXPENSE,
+    icon: 'shopping-bag',
+    color: '#DB2777',
+  },
+  {
+    name: 'Bills',
+    type: CategoryType.EXPENSE,
+    icon: 'receipt',
+    color: '#7C3AED',
+  },
+] as const;
 
 @Injectable()
 export class AuthService {
@@ -27,11 +55,10 @@ export class AuthService {
   constructor(
     @Inject(authConfig.KEY)
     private readonly authConf: ConfigType<typeof authConfig>,
-    @Inject(mailConfig.KEY)
-    private readonly mailConf: ConfigType<typeof mailConfig>,
     private readonly prismaService: PrismaService,
     private readonly jwtService: JwtService,
     private readonly redisService: RedisService,
+    private readonly mailService: MailService,
   ) {
     this.googleClient = new OAuth2Client(this.authConf.googleClientId);
   }
@@ -51,11 +78,6 @@ export class AuthService {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
     };
-    console.log('successfully authenticated user with Google:', {
-      sub: payload.sub,
-      email: payload.email,
-      name: payload.name,
-    });
     return {
       message: 'Google token verified and user authenticated successfully',
       user,
@@ -71,6 +93,7 @@ export class AuthService {
   //Tìm kiếm hoặc tạo mới user trong database
   async requestEmailLoginCode(dto: RequestEmailLoginCodeDto) {
     const email = this.normalizeEmail(dto.email);
+    await this.ensureEmailCanUseEmailProvider(email);
     const code = randomInt(100000, 1000000).toString();
     const ttl = this.parseDurationToSeconds(
       this.authConf.emailLoginCodeExpiresIn,
@@ -79,11 +102,19 @@ export class AuthService {
 
     await this.redisService.set(
       this.getEmailLoginCodeKey(email),
-      JSON.stringify({ hash }),
+      JSON.stringify({
+        hash,
+        deviceId: dto.deviceId,
+        attempts: 0,
+      }),
       'EX',
       ttl,
     );
-    await this.sendEmailLoginCode(email, code);
+    await this.mailService.sendLoginCode(
+      email,
+      code,
+      this.authConf.emailLoginCodeExpiresIn,
+    );
 
     return {
       message: 'Login code sent successfully',
@@ -91,16 +122,41 @@ export class AuthService {
     };
   }
 
-  async emailLogin(dto: EmailLoginDto) {
+  async verifyEmailLoginCode(dto: EmailLoginDto) {
     const email = this.normalizeEmail(dto.email);
+    const loginCode = await this.getEmailLoginCode(email);
+
+    if (!loginCode) {
+      throw new UnauthorizedException('Invalid or expired login code');
+    }
+
+    if (loginCode.attempts >= this.authConf.emailLoginCodeMaxAttempts) {
+      await this.redisService.del(this.getEmailLoginCodeKey(email));
+      throw new UnauthorizedException('Too many invalid login code attempts');
+    }
+
+    if (loginCode.deviceId !== dto.deviceId) {
+      await this.registerEmailLoginCodeFailure(email, loginCode);
+      throw new UnauthorizedException('Invalid or expired login code');
+    }
+
+    const isMatch = await argon2.verify(loginCode.hash, dto.code);
+
+    if (!isMatch) {
+      await this.registerEmailLoginCodeFailure(email, loginCode);
+      throw new UnauthorizedException('Invalid or expired login code');
+    }
+
     const user = await this.findOrCreateEmailUser(email);
-    const tokens = await this.issueTokens(user.userId, UserProvider.GMAIL);
+
+    const tokens = await this.issueTokens(user.userId, UserProvider.EMAIL);
     await this.saveRefreshSession(
       user.userId,
-      UserProvider.GMAIL,
+      UserProvider.EMAIL,
       tokens.sid,
       tokens.refreshToken,
     );
+    await this.redisService.del(this.getEmailLoginCodeKey(email));
 
     return {
       message: 'Email login successful',
@@ -127,7 +183,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      if (existingUser.provider !== UserProvider.GMAIL) {
+      if (existingUser.provider !== UserProvider.EMAIL) {
         throw new UnauthorizedException(
           `Account already linked with provider ${existingUser.provider}. Please use correct login method.`,
         );
@@ -135,50 +191,51 @@ export class AuthService {
       return existingUser;
     }
 
-    return this.prismaService.user.create({
-      data: {
-        email,
-        provider: UserProvider.GMAIL,
-        providerSubject: email,
-        currency: 'VND',
-      },
-      select: {
-        userId: true,
-        email: true,
-        fullName: true,
-        provider: true,
-        currency: true,
-        createdAt: true,
-      },
+    return this.prismaService.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email,
+          provider: UserProvider.EMAIL,
+          providerSubject: email,
+          currency: 'VND',
+        },
+        select: {
+          userId: true,
+          email: true,
+          fullName: true,
+          provider: true,
+          currency: true,
+          createdAt: true,
+        },
+      });
+
+      await tx.category.createMany({
+        data: defaultCategories.map((category) => ({
+          userId: user.userId,
+          name: category.name,
+          type: category.type,
+          icon: category.icon,
+          color: category.color,
+        })),
+      });
+
+      return user;
     });
   }
 
-  private async sendEmailLoginCode(email: string, code: string) {
-    if (
-      !this.mailConf.host ||
-      !this.mailConf.user ||
-      !this.mailConf.pass ||
-      !this.mailConf.from
-    ) {
-      throw new InternalServerErrorException('Mail configuration is missing');
-    }
-
-    const transporter = nodemailer.createTransport({
-      host: this.mailConf.host,
-      port: this.mailConf.port,
-      secure: this.mailConf.secure,
-      auth: {
-        user: this.mailConf.user,
-        pass: this.mailConf.pass,
+  private async ensureEmailCanUseEmailProvider(email: string) {
+    const existingUser = await this.prismaService.user.findUnique({
+      where: { email },
+      select: {
+        provider: true,
       },
     });
 
-    await transporter.sendMail({
-      from: this.mailConf.from,
-      to: email,
-      subject: 'Your Hippimo login code',
-      text: `Your Hippimo login code is ${code}. It expires in ${this.authConf.emailLoginCodeExpiresIn}.`,
-    });
+    if (existingUser && existingUser.provider !== UserProvider.EMAIL) {
+      throw new UnauthorizedException(
+        `Account already linked with provider ${existingUser.provider}. Please use correct login method.`,
+      );
+    }
   }
 
   private async findOrCreateUser(payload: TokenPayload) {
@@ -304,11 +361,6 @@ export class AuthService {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      if (error instanceof Error) {
-        console.error('Google token verification failed:', error.message);
-      } else {
-        console.error('Google token verification failed:', error);
-      }
       throw new UnauthorizedException('Invalid Google token');
     }
   }
@@ -411,12 +463,7 @@ export class AuthService {
         user,
         tokens: tokenResponse,
       };
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error('Refresh token verification failed:', error.message);
-      } else {
-        console.error('Refresh token verification failed:', error);
-      }
+    } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
@@ -436,7 +483,7 @@ export class AuthService {
       const validProvider =
         payload.provider === UserProvider.GOOGLE ||
         payload.provider === UserProvider.APPLE ||
-        payload.provider === UserProvider.GMAIL;
+        payload.provider === UserProvider.EMAIL;
       if (
         typeof payload.sub !== 'string' ||
         !isUUID(payload.sub, '4') ||
@@ -447,12 +494,7 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token');
       }
       return { sub: payload.sub, sid: payload.sid, provider: payload.provider };
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error('Refresh token verification failed:', error.message);
-      } else {
-        console.error('Refresh token verification failed:', error);
-      }
+    } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
@@ -477,12 +519,7 @@ export class AuthService {
       return {
         message: 'Logout successful',
       };
-    } catch (error) {
-      if (error instanceof Error) {
-        console.error('Logout failed:', error.message);
-      } else {
-        console.error('Logout failed:', error);
-      }
+    } catch {
       throw new UnauthorizedException('Logout failed');
     }
   }
@@ -540,8 +577,7 @@ export class AuthService {
     try {
       const session = JSON.parse(raw) as { userId: string; hash: string };
       return { raw, session };
-    } catch (error) {
-      console.error('Failed to parse refresh session data:', error);
+    } catch {
       return null;
     }
   }
@@ -561,6 +597,66 @@ export class AuthService {
   //Hàm chuyển đổi thời gian từ config (ví dụ '15d') sang giây để set TTL trong redis
   private getEmailLoginCodeKey(email: string) {
     return `AUTH:EMAIL_LOGIN_CODE:${email}`;
+  }
+
+  private async getEmailLoginCode(
+    email: string,
+  ): Promise<{ hash: string; deviceId: string; attempts: number } | null> {
+    const raw = await this.redisService.get(this.getEmailLoginCodeKey(email));
+    if (!raw) return null;
+
+    try {
+      const loginCode = JSON.parse(raw) as {
+        hash?: unknown;
+        deviceId?: unknown;
+        attempts?: unknown;
+      };
+      if (
+        typeof loginCode.hash !== 'string' ||
+        typeof loginCode.deviceId !== 'string'
+      ) {
+        return null;
+      }
+
+      return {
+        hash: loginCode.hash,
+        deviceId: loginCode.deviceId,
+        attempts:
+          typeof loginCode.attempts === 'number' ? loginCode.attempts : 0,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private async registerEmailLoginCodeFailure(
+    email: string,
+    loginCode: { hash: string; deviceId: string; attempts: number },
+  ) {
+    const key = this.getEmailLoginCodeKey(email);
+    const attempts = loginCode.attempts + 1;
+
+    if (attempts >= this.authConf.emailLoginCodeMaxAttempts) {
+      await this.redisService.del(key);
+      return;
+    }
+
+    const ttl = await this.redisService.ttl(key);
+    if (ttl <= 0) {
+      await this.redisService.del(key);
+      return;
+    }
+
+    await this.redisService.set(
+      key,
+      JSON.stringify({
+        hash: loginCode.hash,
+        deviceId: loginCode.deviceId,
+        attempts,
+      }),
+      'EX',
+      ttl,
+    );
   }
 
   private normalizeEmail(email: string) {

@@ -5,6 +5,7 @@ import { PrismaModule } from 'src/core/prisma/prisma.module';
 import { JwtModule } from '@nestjs/jwt';
 import { RedisModule } from 'src/core/redis/redis.module';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { MailModule } from 'src/providers/mail/mail.module';
 
 @Module({
   controllers: [AuthController],
@@ -13,6 +14,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
     PrismaModule,
     JwtModule.register({}),
     RedisModule,
+    MailModule,
     ThrottlerModule.forRoot(),
   ],
 })
