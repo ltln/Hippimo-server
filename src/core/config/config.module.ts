@@ -1,13 +1,19 @@
 import { Module } from '@nestjs/common';
 import * as Joi from 'joi';
 import { ConfigModule as NestConfigModule } from '@nestjs/config';
-import { appConfig, authConfig, mailConfig, redisConfig } from './app.config';
+import {
+  appConfig,
+  authConfig,
+  mailConfig,
+  redisConfig,
+  s3Config,
+} from './app.config';
 
 @Module({
   imports: [
     NestConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, authConfig, redisConfig, mailConfig],
+      load: [appConfig, authConfig, redisConfig, mailConfig, s3Config],
       validationSchema: Joi.object({
         PORT: Joi.number().default(8000),
         REDIS_URL: Joi.string().required(),
@@ -23,6 +29,13 @@ import { appConfig, authConfig, mailConfig, redisConfig } from './app.config';
         MAIL_USER: Joi.string().allow('').optional(),
         MAIL_PASS: Joi.string().allow('').optional(),
         MAIL_FROM: Joi.string().allow('').optional(),
+        S3_REGION: Joi.string().default('auto'),
+        S3_ENDPOINT: Joi.string().uri().allow('').optional(),
+        S3_BUCKET: Joi.string().allow('').optional(),
+        S3_ACCESS_KEY_ID: Joi.string().allow('').optional(),
+        S3_SECRET_ACCESS_KEY: Joi.string().allow('').optional(),
+        S3_FORCE_PATH_STYLE: Joi.boolean().default(false),
+        S3_PUBLIC_URL: Joi.string().uri().allow('').optional(),
         NODE_ENV: Joi.string()
           .valid('development', 'production', 'test')
           .default('development'),

@@ -51,6 +51,10 @@ export class RedisService {
     return this.redis.ltrim(key, start, stop);
   }
 
+  async rpop(key: RedisKey): Promise<string | null> {
+    return this.redis.rpop(key);
+  }
+
   async compareAndSetEx(
     key: RedisKey,
     expectedValue: string,

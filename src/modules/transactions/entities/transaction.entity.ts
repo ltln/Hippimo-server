@@ -1,7 +1,25 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { TransactionType } from 'src/core/prisma/prisma.client';
 
-export class Transaction {
+class TransactionReceiptSummary {
+  @ApiProperty({
+    description: 'Receipt UUID.',
+    example: '8a8770fb-76c7-44e9-87bd-d54f1e986089',
+    format: 'uuid',
+  })
+  receiptId!: string;
+}
+
+class TransactionReceiptDetail extends TransactionReceiptSummary {
+  @ApiProperty({
+    description: 'Time-limited presigned URL for the receipt image.',
+    example:
+      'https://cdn.example.com/bucket/user-id/receipt-id?X-Amz-Algorithm=AWS4-HMAC-SHA256',
+  })
+  imageUrl!: string;
+}
+
+export class TransactionSummary {
   @ApiProperty({
     description: 'Transaction UUID.',
     example: '4b7a85ce-5fc3-4ed2-b26f-49a3d2ed9c2d',
@@ -92,4 +110,21 @@ export class Transaction {
     format: 'date-time',
   })
   createdAt!: Date;
+
+  @ApiPropertyOptional({
+    description: 'Receipt identifiers attached to this transaction.',
+    type: TransactionReceiptSummary,
+    isArray: true,
+  })
+  receipts?: TransactionReceiptSummary[];
+}
+
+export class TransactionDetail extends TransactionSummary {
+  @ApiPropertyOptional({
+    description:
+      'Receipts attached to this transaction, with a presigned image URL.',
+    type: TransactionReceiptDetail,
+    isArray: true,
+  })
+  declare receipts?: TransactionReceiptDetail[];
 }

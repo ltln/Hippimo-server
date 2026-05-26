@@ -1,4 +1,4 @@
-import {
+﻿import {
   IsBoolean,
   IsDateString,
   IsEnum,
@@ -10,6 +10,23 @@ import {
 } from 'class-validator';
 import { TransactionType } from 'src/core/prisma/prisma.client';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
+
+const transformBoolean = ({ value }: { value: unknown }) => {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (value === 'true' || value === true) {
+    return true;
+  }
+
+  if (value === 'false' || value === false) {
+    return false;
+  }
+
+  return value;
+};
 
 export class UpdateTransactionDto {
   @ApiPropertyOptional({
@@ -47,6 +64,7 @@ export class UpdateTransactionDto {
     minimum: 0.01,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0.01)
   amount?: number;
@@ -82,6 +100,7 @@ export class UpdateTransactionDto {
     example: false,
   })
   @IsOptional()
+  @Transform(transformBoolean)
   @IsBoolean()
   isExcludedFromReport?: boolean;
 
@@ -90,6 +109,27 @@ export class UpdateTransactionDto {
     example: true,
   })
   @IsOptional()
+  @Transform(transformBoolean)
   @IsBoolean()
   isEssential?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Optional receipt image upload. Multiple files can be appended on update, up to 5 total per transaction.',
+    type: 'string',
+    format: 'binary',
+  })
+  @IsOptional()
+  receiptImage?: unknown;
+
+  @ApiPropertyOptional({
+    description:
+      'Replace existing receipt images with the uploaded files instead of appending them.',
+    example: false,
+    default: false,
+  })
+  @IsOptional()
+  @Transform(transformBoolean)
+  @IsBoolean()
+  replaceReceiptImages?: boolean;
 }

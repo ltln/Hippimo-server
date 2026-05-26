@@ -1,0 +1,19 @@
+CREATE TYPE "ReceiptStatus" AS ENUM ('UPLOADED', 'PROCESSING', 'READY', 'FAILED');
+
+ALTER TABLE "receipts"
+ALTER COLUMN "status" DROP DEFAULT;
+
+ALTER TABLE "receipts"
+ALTER COLUMN "status" TYPE "ReceiptStatus"
+USING (
+  CASE "status"::text
+    WHEN 'PENDING' THEN 'UPLOADED'
+    WHEN 'CONFIRMED' THEN 'READY'
+    WHEN 'REJECTED' THEN 'FAILED'
+  END
+)::"ReceiptStatus";
+
+ALTER TABLE "receipts"
+ALTER COLUMN "status" SET DEFAULT 'UPLOADED';
+
+DROP TYPE "TransactionStatus";
