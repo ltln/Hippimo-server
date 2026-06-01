@@ -26,3 +26,13 @@ export const mailConfig = registerAs('mail', () => ({
   pass: process.env.MAIL_PASS,
   from: process.env.MAIL_FROM || process.env.MAIL_USER,
 }));
+
+export const s3Config = registerAs('s3', () => ({
+  region: process.env.S3_REGION || 'auto',
+  endpoint: process.env.S3_ENDPOINT,
+  bucket: process.env.S3_BUCKET,
+  accessKeyId: process.env.S3_ACCESS_KEY_ID,
+  secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+  forcePathStyle: process.env.S3_FORCE_PATH_STYLE === 'true',
+  publicUrl: process.env.S3_PUBLIC_URL,
+}));

@@ -1,20 +1,32 @@
-import {
+﻿import {
   Body,
   Controller,
   Delete,
+  FileTypeValidator,
   Get,
+  MaxFileSizeValidator,
   Param,
   Patch,
+  ParseFilePipe,
   ParseUUIDPipe,
   Post,
+  UploadedFile,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
-import { TransactionsService } from './transactions.service';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import {
+  type ReceiptImageFile,
+  TransactionsService,
+} from './transactions.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { UserId } from 'src/core/common/decorators/user-id.decorator';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -22,7 +34,10 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
-import { Transaction } from './entities/transaction.entity';
+import {
+  TransactionDetail,
+  TransactionSummary,
+} from './entities/transaction.entity';
 
 const uuidPipe = new ParseUUIDPipe({ version: '4' });
 
@@ -36,11 +51,35 @@ export class TransactionsController {
   @ApiOperation({
     summary: 'Create a transaction for current user',
     description:
-      'Creates an income, expense, or transfer transaction and applies wallet balance changes.',
+      'Creates an income, expense, or transfer transaction, optionally uploads a receipt image, and applies wallet balance changes.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['walletId', 'amount', 'type', 'categoryId'],
+      properties: {
+        walletId: { type: 'string', format: 'uuid' },
+        categoryId: { type: 'string', format: 'uuid' },
+        toWalletId: { type: 'string', format: 'uuid' },
+        amount: { type: 'number', minimum: 0.01 },
+        type: { type: 'string', enum: ['INCOME', 'EXPENSE', 'TRANSFER'] },
+        transactionDate: { type: 'string', format: 'date-time' },
+        notes: { type: 'string' },
+        isExcludedFromReport: { type: 'boolean' },
+        aiSuggestedCategoryId: { type: 'string', format: 'uuid' },
+        isEssential: { type: 'boolean' },
+        receiptImage: {
+          type: 'string',
+          format: 'binary',
+          description: 'Optional receipt image. Supports jpeg, png, webp, gif.',
+        },
+      },
+    },
   })
   @ApiCreatedResponse({
     description: 'Transaction created successfully.',
-    type: Transaction,
+    type: TransactionSummary,
   })
   @ApiBadRequestResponse({
     description:
@@ -49,18 +88,33 @@ export class TransactionsController {
   @ApiNotFoundResponse({
     description: 'Wallet, category, or AI suggested category was not found.',
   })
+  @UseInterceptors(FileInterceptor('receiptImage'))
   create(
     @UserId() userId: string,
     @Body() createTransactionDto: CreateTransactionDto,
+    @UploadedFile(
+      new ParseFilePipe({
+        fileIsRequired: false,
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
+          new FileTypeValidator({ fileType: /^image\/(jpeg|png|webp|gif)$/ }),
+        ],
+      }),
+    )
+    receiptImage?: ReceiptImageFile,
   ) {
-    return this.transactionsService.create(userId, createTransactionDto);
+    return this.transactionsService.create(
+      userId,
+      createTransactionDto,
+      receiptImage,
+    );
   }
 
   @Get()
   @ApiOperation({ summary: 'List transactions for current user' })
   @ApiOkResponse({
     description: 'Transactions returned successfully.',
-    type: Transaction,
+    type: TransactionSummary,
     isArray: true,
   })
   findAll(@UserId() userId: string) {
@@ -77,7 +131,7 @@ export class TransactionsController {
   })
   @ApiOkResponse({
     description: 'Transaction returned successfully.',
-    type: Transaction,
+    type: TransactionDetail,
   })
   @ApiNotFoundResponse({ description: 'Transaction not found.' })
   findOne(@Param('id', uuidPipe) id: string, @UserId() userId: string) {
@@ -88,7 +142,34 @@ export class TransactionsController {
   @ApiOperation({
     summary: 'Update a transaction by id',
     description:
-      'Updates transaction fields and reapplies wallet balance changes when amount, type, or wallets change.',
+      'Updates transaction fields, can append or replace receipt images, and reapplies wallet balance changes when amount, type, or wallets change.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        walletId: { type: 'string', format: 'uuid' },
+        categoryId: { type: 'string', format: 'uuid' },
+        toWalletId: { type: 'string', format: 'uuid' },
+        amount: { type: 'number', minimum: 0.01 },
+        type: { type: 'string', enum: ['INCOME', 'EXPENSE', 'TRANSFER'] },
+        transactionDate: { type: 'string', format: 'date-time' },
+        notes: { type: 'string' },
+        isExcludedFromReport: { type: 'boolean' },
+        isEssential: { type: 'boolean' },
+        replaceReceiptImages: { type: 'boolean', default: false },
+        receiptImage: {
+          type: 'array',
+          items: {
+            type: 'string',
+            format: 'binary',
+          },
+          description:
+            'Optional receipt images to upload. Appends by default or replaces all existing images when replaceReceiptImages is true. Maximum 5 images total per transaction.',
+        },
+      },
+    },
   })
   @ApiParam({
     name: 'id',
@@ -98,21 +179,28 @@ export class TransactionsController {
   })
   @ApiOkResponse({
     description: 'Transaction updated successfully.',
-    type: Transaction,
+    type: TransactionSummary,
   })
   @ApiBadRequestResponse({
     description:
-      'No fields provided, invalid transaction payload, or incompatible category/type/wallet combination.',
+      'No fields provided, invalid receipt upload, too many receipt images, or incompatible category/type/wallet combination.',
   })
   @ApiNotFoundResponse({
     description: 'Transaction, wallet, or category not found.',
   })
+  @UseInterceptors(FilesInterceptor('receiptImage', 5))
   update(
     @Param('id', uuidPipe) id: string,
     @UserId() userId: string,
     @Body() updateTransactionDto: UpdateTransactionDto,
+    @UploadedFiles() receiptImages?: ReceiptImageFile[],
   ) {
-    return this.transactionsService.update(id, userId, updateTransactionDto);
+    return this.transactionsService.update(
+      id,
+      userId,
+      updateTransactionDto,
+      receiptImages,
+    );
   }
 
   @Delete(':id')

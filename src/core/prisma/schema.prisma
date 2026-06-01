@@ -11,10 +11,11 @@ generator client {
 
 // ================= ENUMS =================
 
-enum TransactionStatus {
-  PENDING
-  CONFIRMED
-  REJECTED
+enum ReceiptStatus {
+  UPLOADED
+  PROCESSING
+  READY
+  FAILED
 }
 
 enum NotificationsType {
@@ -172,7 +173,7 @@ model Receipt {
   extractedText     String?           @map("extracted_text") @db.Text
   extractedAmount   Decimal?          @map("extracted_amount") @db.Decimal(15, 2)
   extractedMerchant String?           @map("extracted_merchant") @db.VarChar(100)
-  status            TransactionStatus @default(PENDING)
+  status            ReceiptStatus     @default(UPLOADED)
   createdAt         DateTime          @default(now()) @map("created_at")
 
   user        User        @relation(fields: [userId], references: [userId])

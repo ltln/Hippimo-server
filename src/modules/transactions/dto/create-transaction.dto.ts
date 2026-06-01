@@ -11,6 +11,23 @@ import {
 } from 'class-validator';
 import { TransactionType } from 'src/core/prisma/prisma.client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
+
+const transformBoolean = ({ value }: { value: unknown }) => {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (value === 'true' || value === true) {
+    return true;
+  }
+
+  if (value === 'false' || value === false) {
+    return false;
+  }
+
+  return value;
+};
 
 export class CreateTransactionDto {
   @ApiProperty({
@@ -28,8 +45,8 @@ export class CreateTransactionDto {
     format: 'uuid',
   })
   @IsUUID('4')
-  @IsOptional()
-  categoryId?: string;
+  @IsNotEmpty()
+  categoryId!: string;
 
   @ApiPropertyOptional({
     description: 'Destination wallet UUID. Required for transfer transactions.',
@@ -45,6 +62,7 @@ export class CreateTransactionDto {
     example: 150000,
     minimum: 0.01,
   })
+  @Type(() => Number)
   @IsNumber()
   @Min(0.01)
   @IsNotEmpty()
@@ -59,14 +77,15 @@ export class CreateTransactionDto {
   @IsNotEmpty()
   type!: TransactionType;
 
-  @ApiProperty({
-    description: 'Date and time when the transaction happened.',
+  @ApiPropertyOptional({
+    description:
+      'Date and time when the transaction happened. Defaults to current time when omitted.',
     example: '2026-05-24T10:30:00.000Z',
     format: 'date-time',
   })
+  @IsOptional()
   @IsDateString()
-  @IsNotEmpty()
-  transactionDate!: string;
+  transactionDate?: string;
 
   @ApiPropertyOptional({
     description: 'Optional transaction note.',
@@ -82,6 +101,7 @@ export class CreateTransactionDto {
     default: false,
   })
   @IsOptional()
+  @Transform(transformBoolean)
   @IsBoolean()
   isExcludedFromReport?: boolean;
 
@@ -100,6 +120,15 @@ export class CreateTransactionDto {
     default: false,
   })
   @IsOptional()
+  @Transform(transformBoolean)
   @IsBoolean()
   isEssential?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Optional receipt image. Supports jpeg, png, webp, gif.',
+    type: 'string',
+    format: 'binary',
+  })
+  @IsOptional()
+  receiptImage?: unknown;
 }
