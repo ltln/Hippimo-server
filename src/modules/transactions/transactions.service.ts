@@ -15,6 +15,11 @@ import {
 import { S3Service } from 'src/providers/s3/s3.service';
 import { v4 as uuidv4 } from 'uuid';
 import { ReceiptProcessingQueueService } from './receipt-processing.queue.service';
+import {
+  ALLOWED_RECEIPT_IMAGE_MIME_TYPES,
+  MAX_RECEIPT_IMAGES_PER_TRANSACTION,
+  MAX_RECEIPT_IMAGE_SIZE_BYTES,
+} from './receipt-upload.constants';
 
 export interface ReceiptImageFile {
   buffer: Buffer;
@@ -32,15 +37,6 @@ type PreparedReceiptUpload = {
 type StoredReceiptUpload = PreparedReceiptUpload & {
   url: string;
 };
-
-const MAX_RECEIPT_IMAGES_PER_TRANSACTION = 5;
-const MAX_RECEIPT_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_RECEIPT_IMAGE_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-]);
 
 const receiptSelect = {
   receiptId: true,
@@ -563,7 +559,7 @@ export class TransactionsService {
       }
 
       if (receiptImage.size > MAX_RECEIPT_IMAGE_SIZE_BYTES) {
-        throw new BadRequestException('Receipt image must be 5MB or smaller');
+        throw new BadRequestException('Receipt image must be 10MB or smaller');
       }
     }
   }

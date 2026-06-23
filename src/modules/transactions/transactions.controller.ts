@@ -1,4 +1,4 @@
-﻿import {
+import {
   Body,
   Controller,
   Delete,
@@ -19,6 +19,10 @@ import {
   type ReceiptImageFile,
   TransactionsService,
 } from './transactions.service';
+import {
+  MAX_RECEIPT_IMAGE_SIZE_BYTES,
+  RECEIPT_IMAGE_UPLOAD_LIMITS,
+} from './receipt-upload.constants';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { UserId } from 'src/core/common/decorators/user-id.decorator';
@@ -72,7 +76,8 @@ export class TransactionsController {
         receiptImage: {
           type: 'string',
           format: 'binary',
-          description: 'Optional receipt image. Supports jpeg, png, webp, gif.',
+          description:
+            'Optional receipt image up to 10MB. Supports jpeg, png, webp, gif.',
         },
       },
     },
@@ -88,7 +93,11 @@ export class TransactionsController {
   @ApiNotFoundResponse({
     description: 'Wallet, category, or AI suggested category was not found.',
   })
-  @UseInterceptors(FileInterceptor('receiptImage'))
+  @UseInterceptors(
+    FileInterceptor('receiptImage', {
+      limits: RECEIPT_IMAGE_UPLOAD_LIMITS,
+    }),
+  )
   create(
     @UserId() userId: string,
     @Body() createTransactionDto: CreateTransactionDto,
@@ -96,7 +105,7 @@ export class TransactionsController {
       new ParseFilePipe({
         fileIsRequired: false,
         validators: [
-          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
+          new MaxFileSizeValidator({ maxSize: MAX_RECEIPT_IMAGE_SIZE_BYTES }),
           new FileTypeValidator({ fileType: /^image\/(jpeg|png|webp|gif)$/ }),
         ],
       }),
@@ -166,7 +175,7 @@ export class TransactionsController {
             format: 'binary',
           },
           description:
-            'Optional receipt images to upload. Appends by default or replaces all existing images when replaceReceiptImages is true. Maximum 5 images total per transaction.',
+            'Optional receipt images up to 10MB each. Appends by default or replaces all existing images when replaceReceiptImages is true. Maximum 5 images total per transaction.',
         },
       },
     },
@@ -188,7 +197,11 @@ export class TransactionsController {
   @ApiNotFoundResponse({
     description: 'Transaction, wallet, or category not found.',
   })
-  @UseInterceptors(FilesInterceptor('receiptImage', 5))
+  @UseInterceptors(
+    FilesInterceptor('receiptImage', 5, {
+      limits: RECEIPT_IMAGE_UPLOAD_LIMITS,
+    }),
+  )
   update(
     @Param('id', uuidPipe) id: string,
     @UserId() userId: string,
