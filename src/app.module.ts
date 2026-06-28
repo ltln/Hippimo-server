@@ -16,6 +16,7 @@ import { TransactionsModule } from './modules/transactions/transactions.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { WalletsModule } from './modules/wallets/wallets.module';
 import { BudgetsModule } from './modules/budgets/budgets.module';
+import { StatisticsModule } from './modules/statistics/statistics.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { BudgetsModule } from './modules/budgets/budgets.module';
     WalletsModule,
     CategoriesModule,
     BudgetsModule,
+    StatisticsModule,
   ],
   controllers: [AppController, AuthController],
   providers: [
