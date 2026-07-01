@@ -87,6 +87,10 @@ function transactionNote(type: TransactionType) {
 }
 
 function providerSubject(provider: UserProvider, email: string) {
+  if (provider === UserProvider.GMAIL) {
+    return email;
+  }
+
   return provider.toLowerCase() + ':' + email;
 }
 
@@ -116,15 +120,15 @@ function buildUsers() {
       email: TEST_USER_EMAIL,
       fullName: 'Test User',
       currency: 'VND',
-      provider: UserProvider.GOOGLE,
-      providerSubject: providerSubject(UserProvider.GOOGLE, TEST_USER_EMAIL),
+      provider: UserProvider.GMAIL,
+      providerSubject: providerSubject(UserProvider.GMAIL, TEST_USER_EMAIL),
       createdAt: testCreatedAt,
     },
   ];
   for (let i = 1; i < USER_COUNT; i += 1) {
     const provider = faker.helpers.arrayElement([
       UserProvider.GOOGLE,
-      UserProvider.APPLE,
+      UserProvider.GMAIL,
     ]);
     const email = 'seed.user.' + String(i).padStart(3, '0') + '@' + DOMAIN;
     users.push({
