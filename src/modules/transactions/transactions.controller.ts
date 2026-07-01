@@ -61,7 +61,7 @@ export class TransactionsController {
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['walletId', 'amount', 'type', 'categoryId'],
+      required: ['walletId', 'amount', 'type'],
       properties: {
         walletId: { type: 'string', format: 'uuid' },
         categoryId: { type: 'string', format: 'uuid' },
