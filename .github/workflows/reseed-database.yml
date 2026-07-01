@@ -57,4 +57,4 @@ jobs:
           EOF
 
       - name: Reset and seed database
-        run: npm run db:reset -- --force
+        run: npm run db:reset -- --force && npm run db:seed
