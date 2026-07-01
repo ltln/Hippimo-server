@@ -21,6 +21,28 @@ const TRANSACTION_COUNT = intEnv('TRANSACTION_COUNT', 12);
 const TEST_USER_EMAIL = 'test@gmail.com';
 const DOMAIN = 'seed.hippimo.local';
 const VND_STEP = 1000;
+const RECENT_TRANSACTION_DAY_WINDOWS = [1, 3, 7] as const;
+const VIETNAMESE_TRANSACTION_NOTES = {
+  [TransactionType.INCOME]: [
+    'Nhận lương tháng này',
+    'Thanh toán tiền làm thêm',
+    'Khách chuyển khoản dự án',
+    'Thu nhập phụ trong tuần',
+  ],
+  [TransactionType.EXPENSE]: [
+    'Ăn trưa với đồng nghiệp',
+    'Mua đồ dùng cá nhân',
+    'Thanh toán hóa đơn sinh hoạt',
+    'Đặt xe đi làm',
+    'Mua cà phê buổi sáng',
+  ],
+  [TransactionType.TRANSFER]: [
+    'Chuyển tiền giữa các ví',
+    'Nạp tiền vào ví điện tử',
+    'Chuyển tiền sang tài khoản chính',
+    'Điều chỉnh số dư ví',
+  ],
+} as const;
 const DEFAULT_CATEGORIES = [
   ['Salary', CategoryType.INCOME, 'briefcase', '#2E8B57'],
   ['Freelance', CategoryType.INCOME, 'laptop', '#1F6FEB'],
@@ -55,6 +77,15 @@ function money(min: number, max: number) {
   return amount.toFixed(2);
 }
 
+function recentTransactionDate() {
+  const days = faker.helpers.arrayElement(RECENT_TRANSACTION_DAY_WINDOWS);
+  return faker.date.recent({ days });
+}
+
+function transactionNote(type: TransactionType) {
+  return faker.helpers.arrayElement(VIETNAMESE_TRANSACTION_NOTES[type]);
+}
+
 function providerSubject(provider: UserProvider, email: string) {
   return provider.toLowerCase() + ':' + email;
 }
@@ -85,14 +116,13 @@ function buildUsers() {
       email: TEST_USER_EMAIL,
       fullName: 'Test User',
       currency: 'VND',
-      provider: UserProvider.GMAIL,
-      providerSubject: providerSubject(UserProvider.GMAIL, TEST_USER_EMAIL),
+      provider: UserProvider.GOOGLE,
+      providerSubject: providerSubject(UserProvider.GOOGLE, TEST_USER_EMAIL),
       createdAt: testCreatedAt,
     },
   ];
   for (let i = 1; i < USER_COUNT; i += 1) {
     const provider = faker.helpers.arrayElement([
-      UserProvider.GMAIL,
       UserProvider.GOOGLE,
       UserProvider.APPLE,
     ]);
@@ -150,10 +180,7 @@ function buildUserData(user: ReturnType<typeof buildUsers>[number]) {
       TransactionType.TRANSFER,
     ]);
     const amount = Number(money(50000, 2500000));
-    const transactionDate = faker.date.between({
-      from: user.createdAt,
-      to: new Date(),
-    });
+    const transactionDate = recentTransactionDate();
     let categoryId: string | null = null;
     let toWalletId: string | null = null;
 
@@ -179,7 +206,7 @@ function buildUserData(user: ReturnType<typeof buildUsers>[number]) {
       amount: amount.toFixed(2),
       type,
       transactionDate,
-      notes: faker.lorem.sentence(),
+      notes: transactionNote(type),
       isExcludedFromReport: false,
       isEssential:
         type === TransactionType.EXPENSE ? faker.datatype.boolean() : false,

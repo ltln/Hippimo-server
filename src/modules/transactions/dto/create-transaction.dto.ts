@@ -44,9 +44,9 @@ export class CreateTransactionDto {
     example: '4411b598-c7cd-4724-967d-1de2e31b0616',
     format: 'uuid',
   })
+  @IsOptional()
   @IsUUID('4')
-  @IsNotEmpty()
-  categoryId!: string;
+  categoryId?: string;
 
   @ApiPropertyOptional({
     description: 'Destination wallet UUID. Required for transfer transactions.',
